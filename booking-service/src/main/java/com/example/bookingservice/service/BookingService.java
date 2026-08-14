@@ -1,0 +1,493 @@
+package com.example.bookingservice.service;
+
+import com.example.bookingservice.client.PropertyServiceClient;
+import com.example.bookingservice.client.UserClient;
+import com.example.bookingservice.client.AIServiceClient;
+import com.example.bookingservice.config.RabbitConfig;
+import com.example.bookingservice.dto.*;
+import com.example.bookingservice.entity.Booking;
+import com.example.bookingservice.enu.BookingStatus;
+import com.example.bookingservice.exception.*;
+import com.example.bookingservice.messaging.BookingCancellationEvent;
+import com.example.bookingservice.repository.BookingRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.UUID;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class BookingService {
+
+    private final BookingRepository bookingRepository;
+    private final PropertyServiceClient propertyServiceClient;
+    private final UserClient userClient;
+    private final AIServiceClient aiServiceClient;
+    private final RabbitTemplate rabbitTemplate;
+
+    @Transactional
+    public BookingResponse createBooking(CreateBookingRequest request,
+                                         Long tenantId) {
+        log.info("Creating booking for tenant: {}, property: {}",
+                tenantId, request.getPropertyId());
+
+        // 1. Vérifier le profil de l'utilisateur (KYC)
+        validateUserForBooking(tenantId);
+
+        // 2. Récupérer les infos de la propriété (Source of truth)
+        PropertyResponse property = propertyServiceClient.getPropertyById(request.getPropertyId());
+
+        // 2. Valider la propriété (basique: capacité, dates min/max)
+        validatePropertyForBooking(property, request);
+
+        // 3. Calculer le montant total manuellement pour garantir l'intégrité (Backend-Calculated)
+        long numberOfNights = ChronoUnit.DAYS.between(request.getCheckIn(), request.getCheckOut());
+        if (numberOfNights <= 0) {
+            throw new IllegalArgumentException("Invalid date range: check-out must be after check-in");
+        }
+
+        BigDecimal totalPrice = property.getPricePerNight().multiply(BigDecimal.valueOf(numberOfNights));
+        BigDecimal securityDeposit = property.getSecurityDeposit();
+
+        // 3.5 Vérifier les conflits de dates locaux avant de tenter de verrouiller
+        checkForBookingConflicts(request.getPropertyId(), request.getCheckIn(), request.getCheckOut());
+
+        // 4. Verrouiller les dates et obtenir le lockToken officiel via Property-Service
+        String lockToken;
+        try {
+            java.util.Map<String, Object> lockResponse = propertyServiceClient.blockDates(
+                    tenantId,
+                    request.getPropertyId(),
+                    request.getCheckIn(),
+                    request.getCheckOut()
+            );
+
+            if (lockResponse == null || !lockResponse.containsKey("lockToken")) {
+                throw new ServiceIntegrationException("Property-Service did not return a lockToken");
+            }
+
+            lockToken = (String) lockResponse.get("lockToken");
+        } catch (Exception e) {
+            log.error("❌ Failed to lock dates via Property-Service (blockDates): {}", e.getMessage());
+            throw new ServiceIntegrationException("Could not secure dates for booking: " + e.getMessage());
+        }
+
+        // 5. Créer le booking avec les données garanties par le backend
+        Booking booking = Booking.builder()
+                .propertyId(request.getPropertyId())
+                .tenantId(tenantId)
+                .ownerId(property.getOwnerId())
+                .checkIn(request.getCheckIn())
+                .checkOut(request.getCheckOut())
+                .numberOfGuests(request.getNumberOfGuests())
+                .totalPrice(totalPrice)
+                .securityDeposit(securityDeposit)
+                .status(BookingStatus.PENDING_PAYMENT)
+                .lockToken(lockToken)
+                .build();
+
+        Booking savedBooking = bookingRepository.save(booking);
+        log.info("🔐 Booking initiated: ID={}, property={}, lockToken={}, price={}",
+                savedBooking.getId(), savedBooking.getPropertyId(), savedBooking.getLockToken(), savedBooking.getTotalPrice());
+
+        // 6. Retourner la réponse avec infos hydratées
+        return buildBookingResponse(savedBooking, property);
+    }
+
+    public OwnerStatsResponse getOwnerStats(Long ownerId) {
+        long total = bookingRepository.countByOwnerId(ownerId);
+        long confirmed = bookingRepository.countByOwnerIdAndStatus(ownerId, BookingStatus.CONFIRMED);
+        long pending = bookingRepository.countByOwnerIdAndStatus(ownerId, BookingStatus.PENDING_PAYMENT);
+        long cancelled = bookingRepository.countByOwnerIdAndStatus(ownerId, BookingStatus.CANCELLED);
+        long active = bookingRepository.countByOwnerIdAndStatus(ownerId, BookingStatus.ACTIVE);
+
+        BigDecimal revenue = bookingRepository.sumRevenueByOwnerId(ownerId);
+        if (revenue == null) revenue = BigDecimal.ZERO;
+
+        java.util.Map<String, Long> byStatus = new java.util.HashMap<>();
+        for (BookingStatus status : BookingStatus.values()) {
+            byStatus.put(status.name(), bookingRepository.countByOwnerIdAndStatus(ownerId, status));
+        }
+
+        return OwnerStatsResponse.builder()
+                .totalBookings(total)
+                .confirmedBookings(confirmed)
+                .pendingBookings(pending)
+                .cancelledBookings(cancelled)
+                .activeBookings(active)
+                .totalRevenue(revenue)
+                .bookingsByStatus(byStatus)
+                .build();
+    }
+
+
+    @Transactional
+    public BookingResponse confirmBooking(Long bookingId, Long userId) {
+        log.info("Confirming booking ID: {} by user: {}", bookingId, userId);
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found with id: " + bookingId));
+
+        if (!booking.getTenantId().equals(userId)) {
+            throw new UnauthorizedActionException("Only the tenant who initiated the booking can confirm it");
+        }
+
+        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
+            throw new InvalidBookingStateException("Cannot confirm booking in status: " + booking.getStatus());
+        }
+
+        // Verrouiller définitivement les dates dans Property-Service
+        try {
+            propertyServiceClient.confirmReservation(
+                    booking.getPropertyId(),
+                    booking.getCheckIn(),
+                    booking.getCheckOut(),
+                    booking.getLockToken()
+            );
+        } catch (Exception e) {
+            log.error("❌ Failed to confirm reservation in Property-Service for booking {}", booking.getId(), e);
+            throw new ServiceIntegrationException("Could not confirm the reservation: " + e.getMessage());
+        }
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setConfirmedAt(LocalDateTime.now());
+        booking.setPaymentConfirmedAt(LocalDateTime.now());
+        Booking updatedBooking = bookingRepository.save(booking);
+
+        PropertyResponse property = propertyServiceClient.getPropertyById(booking.getPropertyId());
+        return buildBookingResponse(updatedBooking, property);
+    }
+
+    @Transactional
+    public BookingResponse cancelBooking(Long bookingId, Long userId, String reason) {
+        log.info("Cancelling booking ID: {} by user: {}", bookingId, userId);
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found"));
+
+        // Vérifier les permissions
+        if (!booking.getTenantId().equals(userId) && !booking.getOwnerId().equals(userId)) {
+            throw new UnauthorizedActionException("You are not authorized to cancel this booking");
+        }
+
+        // Validation selon le statut
+        validateCancellation(booking, userId);
+
+        // Si le booking était confirmé, libérer les dates
+        if (booking.getStatus() == BookingStatus.CONFIRMED) {
+            try {
+                propertyServiceClient.releaseDates(booking.getPropertyId(), booking.getLockToken());
+                log.info("Property dates released for cancelled booking: {}", bookingId);
+            } catch (Exception e) {
+                log.warn("Failed to release property dates for booking: {}", bookingId, e);
+            }
+        }
+
+        // Mettre à jour le booking
+        booking.setStatus(BookingStatus.CANCELLED);
+        booking.setCancellationReason(reason);
+        booking.setCancelledAt(LocalDateTime.now());
+        Booking cancelledBooking = bookingRepository.save(booking);
+
+        // Récupérer les infos pour la réponse
+        PropertyResponse property = propertyServiceClient.getPropertyById(booking.getPropertyId());
+
+        log.info("Booking ID: {} cancelled by user: {}", bookingId, userId);
+ 
+        // Notify via RabbitMQ (Safe)
+        try {
+            BookingCancellationEvent event = new BookingCancellationEvent(bookingId, reason);
+            rabbitTemplate.convertAndSend(RabbitConfig.BOOKING_EXCHANGE, RabbitConfig.BOOKING_CANCELLED_ROUTING_KEY, event);
+            log.info("Notification sent for booking cancellation: {}", bookingId);
+        } catch (Exception e) {
+            log.error("Failed to send notification for booking cancellation {}: {}", bookingId, e.getMessage());
+        }
+
+        return buildBookingResponse(cancelledBooking, property);
+    }
+
+    public BookingResponse getBookingById(Long bookingId, Long userId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new BookingNotFoundException("Booking not found"));
+
+        // Vérifier les permissions
+        if (!booking.getTenantId().equals(userId) && !booking.getOwnerId().equals(userId)) {
+            throw new UnauthorizedActionException("You are not authorized to view this booking");
+        }
+
+        PropertyResponse property = propertyServiceClient.getPropertyById(booking.getPropertyId());
+
+        return buildBookingResponse(booking, property);
+    }
+
+    public List<BookingResponse> getUserBookings(Long userId, BookingStatus status) {
+        List<Booking> bookings;
+
+        if (status != null) {
+            bookings = bookingRepository.findByTenantId(userId).stream()
+                    .filter(b -> b.getStatus() == status)
+                    .toList();
+        } else {
+            bookings = bookingRepository.findByTenantId(userId);
+        }
+
+        return bookings.stream()
+                .map(booking -> {
+                    try {
+                        PropertyResponse property = propertyServiceClient.getPropertyById(booking.getPropertyId());
+                        return buildBookingResponse(booking, property);
+                    } catch (Exception e) {
+                        log.error("Failed to fetch details for booking: {}", booking.getId(), e);
+                        return buildBookingResponse(booking, null);
+                    }
+                })
+                .toList();
+    }
+
+    public List<BookingResponse> getOwnerBookings(Long ownerId, BookingStatus status) {
+        List<Booking> bookings;
+
+        if (status != null) {
+            bookings = bookingRepository.findByOwnerId(ownerId).stream()
+                    .filter(b -> b.getStatus() == status)
+                    .toList();
+        } else {
+            bookings = bookingRepository.findByOwnerId(ownerId);
+        }
+
+        return bookings.stream()
+                .map(booking -> {
+                    try {
+                        PropertyResponse property = propertyServiceClient.getPropertyById(booking.getPropertyId());
+                        return buildBookingResponse(booking, property);
+                    } catch (Exception e) {
+                        log.error("Failed to fetch details for booking: {}", booking.getId(), e);
+                        return buildBookingResponse(booking, null);
+                    }
+                })
+                .toList();
+    }
+
+    // Méthodes privées utilitaires
+    private void validatePropertyForBooking(PropertyResponse property, CreateBookingRequest request) {
+        if (property == null) {
+            throw new ServiceIntegrationException("Property service returned null property");
+        }
+
+        if (request.getCheckIn() == null || request.getCheckOut() == null) {
+            throw new InvalidBookingRequestException("Check-in and check-out dates are required");
+        }
+
+        if (!request.getCheckOut().isAfter(request.getCheckIn())) {
+            throw new InvalidBookingRequestException("Check-out date must be after check-in date");
+        }
+
+        if (property.getStatus() != null && !property.getStatus().equalsIgnoreCase("ACTIVE")) {
+            throw new InvalidBookingRequestException("Property is not available for booking (Status: " + property.getStatus() + ")");
+        }
+
+        if (property.getMaxGuests() != null && request.getNumberOfGuests() != null
+                && request.getNumberOfGuests() > property.getMaxGuests()) {
+            throw new InvalidBookingRequestException("Number of guests exceeds property capacity");
+        }
+
+        Integer minStay = property.getMinStayNights();
+        if (minStay != null && minStay > 0) {
+            long nights = ChronoUnit.DAYS.between(request.getCheckIn(), request.getCheckOut());
+            if (nights < minStay) {
+                throw new InvalidBookingRequestException("Minimum stay is " + minStay + " nights");
+            }
+        }
+
+        /* MVP: si la propriété n'est pas instant bookable, on refuse (pas de workflow d'approbation owner dans ce service)
+        if (property.getInstantBookable() != null && !property.getInstantBookable()) {
+            throw new InvalidBookingRequestException("Property requires owner approval (not supported in MVP)");
+        } */
+    }
+
+    private void checkForBookingConflicts(Long propertyId, LocalDate checkIn, LocalDate checkOut) {
+        if (propertyId == null || checkIn == null || checkOut == null) {
+            throw new InvalidBookingRequestException("PropertyId, checkIn and checkOut are required");
+        }
+
+        List<Booking> conflicts = bookingRepository.findConflictingBookings(propertyId, checkIn, checkOut);
+        if (conflicts != null && !conflicts.isEmpty()) {
+            throw new BookingConflictException("Property is not available for the selected dates");
+        }
+    }
+
+    private void validateCancellation(Booking booking, Long userId) {
+        if (booking == null) {
+            throw new BookingNotFoundException("Booking not found");
+        }
+
+        if (!booking.getTenantId().equals(userId) && !booking.getOwnerId().equals(userId)) {
+            throw new UnauthorizedActionException("You are not authorized to cancel this booking");
+        }
+
+        // MVP: règles simples
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new InvalidBookingStateException("Booking is already cancelled");
+        }
+
+        if (booking.getStatus() == BookingStatus.COMPLETED) {
+            throw new InvalidBookingStateException("Cannot cancel a completed booking");
+        }
+
+        if (booking.getStatus() == BookingStatus.ACTIVE) {
+            throw new InvalidBookingStateException("Cannot cancel an active booking");
+        }
+
+        // Si le séjour a déjà commencé, refus
+        if (booking.getCheckIn() != null && booking.getCheckIn().isBefore(LocalDate.now())) {
+            throw new InvalidBookingStateException("Cannot cancel a booking that already started");
+        }
+    }
+
+    private BookingResponse buildBookingResponse(Booking booking, PropertyResponse property) {
+        String tenantName = null;
+        String ownerName = null;
+
+        try {
+            UserProfileDTO tenant = userClient.getUserProfile(booking.getTenantId());
+            if (tenant != null) {
+                tenantName = tenant.getFirstName() + " " + tenant.getLastName();
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch tenant name for booking {}: {}", booking.getId(), e.getMessage());
+        }
+
+        try {
+            UserProfileDTO owner = userClient.getUserProfile(booking.getOwnerId());
+            if (owner != null) {
+                ownerName = owner.getFirstName() + " " + owner.getLastName();
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch owner name for booking {}: {}", booking.getId(), e.getMessage());
+        }
+
+        return BookingResponse.builder()
+                .id(booking.getId())
+                .propertyId(booking.getPropertyId())
+                .tenantId(booking.getTenantId())
+                .ownerId(booking.getOwnerId())
+                .checkIn(booking.getCheckIn())
+                .checkOut(booking.getCheckOut())
+                .numberOfGuests(booking.getNumberOfGuests())
+                .totalPrice(booking.getTotalPrice())
+                .securityDeposit(booking.getSecurityDeposit())
+                .status(booking.getStatus())
+                .lockToken(booking.getLockToken())
+                .cancellationReason(booking.getCancellationReason())
+                .createdAt(booking.getCreatedAt())
+                .confirmedAt(booking.getConfirmedAt())
+                .cancelledAt(booking.getCancelledAt())
+                .completedAt(booking.getCompletedAt())
+                .paymentConfirmedAt(booking.getPaymentConfirmedAt())
+                .propertyTitle(property != null ? property.getTitle() : null)
+                .propertyAddress(property != null ? convertAddressToString(property.getAddress()) : null)
+                .tenantName(tenantName)
+                .ownerName(ownerName)
+                .build();
+    }
+    private String convertAddressToString(Object address) {
+        if (address == null) return null;
+
+        if (address instanceof String) {
+            return (String) address;
+        }
+
+        // Si c'est un objet JSON (Map), construire une string
+        try {
+            // Solution MVP simple
+            return address.toString(); // "[street=..., city=...]"
+        } catch (Exception e) {
+            return "Address available";
+        }
+    }
+
+    public RiskScoreResponse getUserTrustScore(Long userId) {
+        log.info("📊 Fetching Trust Score for User {}", userId);
+        try {
+            UserProfileDTO user = userClient.getUserProfile(userId);
+            if (user == null) {
+                // Fallback safe si user non trouvé (ne devrait pas arriver si authentifié)
+                return new RiskScoreResponse(userId, 50, "UNKNOWN");
+            }
+
+            int cancelCount = (int) bookingRepository.countByTenantIdAndStatus(userId, BookingStatus.CANCELLED);
+            int badReviews = 0; // TODO: Connect to Review Service
+
+            return aiServiceClient.getRiskScore(
+                    userId,
+                    cancelCount,
+                    badReviews
+            );
+        } catch (Exception e) {
+            log.error("❌ Failed to fetch trust score: {}", e.getMessage());
+            // Fallback safe en cas d'erreur
+            return new RiskScoreResponse(userId, 100, "UNAVAILABLE");
+        }
+    }
+
+    private void validateUserForBooking(Long userId) {
+        log.info("🔍 Starting user validation for userId: {}", userId);
+        try {
+            UserProfileDTO user = userClient.getUserProfile(userId);
+
+            if (user == null) {
+                log.error("❌ User profile not found for userId: {}", userId);
+                throw new BookingNotFoundException("User profile not found");
+            }
+            log.info("👤 User profile found: email={}", user.getEmail());
+
+            if (!user.isKycComplete()) {
+                    log.warn("❌ KYC incomplete for user {}", userId);
+                    throw new IncompleteProfileException("Votre profil est incomplet (photo ou documents KYC manquants). Veuillez compléter votre profil.");
+                }
+
+                log.info("✅ User {} validated for booking (KYC OK)", userId);
+
+                // --- Integration AI Service (Risk Score) ---
+                try {
+                    int cancelCount = (int) bookingRepository.countByTenantIdAndStatus(userId, BookingStatus.CANCELLED);
+                    int badReviews = 0;
+
+                    RiskScoreResponse risk = aiServiceClient.getRiskScore(
+                            userId,
+                            cancelCount,
+                            badReviews
+                    );
+                    log.info("🛡️ Risk Analysis for User {}: Score={}, Level={}", userId, risk.getScore(), risk.getRisk_level());
+                    if (risk.getScore() < 50) {
+                        log.warn("🚫 Booking rejected: User {} has a trust score too low ({})", userId, risk.getScore());
+                        throw new InvalidActionException("Votre score de confiance est trop faible (" + risk.getScore() + "/100). " +
+                                "Vous avez trop d'annulations ou de litiges pour réserver ce bien.");
+                    }
+                }catch (InvalidActionException e) {
+                    // On REJETTE la réservation si le score est trop bas
+                    throw e;
+                } catch (Exception e) {
+                    log.warn("⚠️ AI Service unavailable or error, proceeding without risk score: {}", e.getMessage());
+                    // Fallback is handled by AI Service (returning 100), but if connection fails completely:
+                    // We just log and proceed, as per requirement "ne pas bloquer mon BookingService.java"
+                }
+
+            } catch (IncompleteProfileException | BookingNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("❌ Error while validating user {}: {}", userId, e.getMessage());
+            // En cas d'erreur de communication, on bloque par sécurité pour le MVP
+            throw new ServiceIntegrationException("Impossible de vérifier votre profil utilisateur pour le moment.");
+        }
+    }
+}

@@ -1,0 +1,363 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "leaflet/dist/leaflet.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-light: var(--success-light);
+  --color-warning: var(--warning);
+  --color-warning-light: var(--warning-light);
+  --color-error: var(--error);
+  --color-error-light: var(--error-light);
+  --color-info: var(--info);
+  --color-surface: var(--surface);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-secondary-light: var(--secondary-light);
+  --color-accent-light: var(--accent-light);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@theme {
+  /* Nestora neutral scale — replaces Tailwind gray */
+  --color-gray-50: #F8F8FB;
+  --color-gray-100: #F3F4F8; /* Surface Secondary */
+  --color-gray-200: #E3E5EC; /* Border */
+  --color-gray-300: #CDD1DC; /* Border Strong */
+  --color-gray-400: #8D94A8; /* Text Muted */
+  --color-gray-500: #5F667A; /* Text Secondary */
+  --color-gray-600: #5F667A; /* Text Secondary */
+  --color-gray-700: #3E4457;
+  --color-gray-800: #2A3040;
+  --color-gray-900: #151A2E; /* Deep Space */
+  --color-gray-950: #0E1220;
+
+  /* Nestora error scale — replaces Tailwind red */
+  --color-red-50: #FDECEC;
+  --color-red-100: #FDECEC; /* Error Light */
+  --color-red-200: #F7CACA;
+  --color-red-300: #F1A6A6;
+  --color-red-400: #E87B7B;
+  --color-red-500: #E05252; /* Error */
+  --color-red-600: #C74444;
+  --color-red-700: #A93A3A;
+  --color-red-800: #8A2F2F;
+  --color-red-900: #6E2424;
+  --color-red-950: #4A1717;
+
+  /* Nestora teal/success scale — replaces Tailwind green */
+  --color-green-50: #E8F7F3; /* Success Light */
+  --color-green-100: #E8F7F3; /* Success Light */
+  --color-green-200: #C3EADD;
+  --color-green-300: #96D9C6;
+  --color-green-400: #4FC2AC;
+  --color-green-500: #18B6A4; /* Secondary Teal */
+  --color-green-600: #16A085; /* Success */
+  --color-green-700: #12836D;
+  --color-green-800: #0F6B59;
+  --color-green-900: #0B4D40;
+  --color-green-950: #07382F;
+
+  /* Nestora warning scale — replaces Tailwind yellow/amber */
+  --color-yellow-50: #FFF7E3; /* Warning Light */
+  --color-yellow-100: #FFF7E3; /* Warning Light */
+  --color-yellow-200: #FEEDC2;
+  --color-yellow-300: #FDE09B;
+  --color-yellow-400: #F4B942; /* Warning */
+  --color-yellow-500: #E6A72F;
+  --color-yellow-600: #C98F26;
+  --color-yellow-700: #A9761E;
+  --color-yellow-800: #8F6420;
+  --color-yellow-900: #6B4A17;
+  --color-yellow-950: #4A3510;
+  --color-amber-300: #FDE09B;
+  --color-amber-400: #F4B942;
+  --color-amber-500: #E6A72F;
+  --color-amber-600: #C98F26;
+  --color-amber-700: #A9761E;
+  --color-amber-800: #8F6420;
+  --color-amber-900: #6B4A17;
+
+  /* Nestora indigo scale — replaces Tailwind purple */
+  --color-purple-50: #F3F1FF;
+  --color-purple-100: #EDEBFF; /* Primary Light */
+  --color-purple-200: #DFDCFF;
+  --color-purple-300: #B9B4F4;
+  --color-purple-400: #8B84EC;
+  --color-purple-500: #5146E5; /* Primary */
+  --color-purple-600: #4338CA; /* Primary Hover */
+  --color-purple-700: #38309E;
+  --color-purple-800: #2C267A;
+  --color-purple-900: #26205E;
+  --color-purple-950: #181343;
+
+  /* Nestora info scale — replaces Tailwind blue */
+  --color-blue-50: #E5EFFF;
+  --color-blue-100: #E5EFFF;
+  --color-blue-200: #C4DCFE;
+  --color-blue-300: #A7CBFA;
+  --color-blue-400: #6FA1F7;
+  --color-blue-500: #3B82F6; /* Info */
+  --color-blue-600: #2F6FE0;
+  --color-blue-700: #285EC0;
+  --color-blue-800: #1F4C99;
+  --color-blue-900: #16386E;
+  --color-blue-950: #0E2450;
+
+  /* Nestora coral scale — replaces Tailwind orange */
+  --color-orange-50: #FFF0EC; /* Accent Light */
+  --color-orange-100: #FFF0EC; /* Accent Light */
+  --color-orange-200: #FFD9CE;
+  --color-orange-300: #FFB9A6;
+  --color-orange-400: #FF9C84;
+  --color-orange-500: #FF8066; /* Accent Coral */
+  --color-orange-600: #E56A50;
+  --color-orange-700: #C4543F;
+  --color-orange-800: #A04333;
+  --color-orange-900: #7C3428;
+  --color-orange-950: #52211A;
+
+  /* Brand anchors for teal/indigo/emerald */
+  --color-teal-400: #2AC7B6;
+  --color-teal-500: #18B6A4; /* Secondary */
+  --color-teal-600: #0F9F90; /* Secondary Hover */
+  --color-teal-700: #0E8478;
+  --color-indigo-400: #7B74EC;
+  --color-indigo-500: #5146E5; /* Primary */
+  --color-indigo-600: #4338CA; /* Primary Hover */
+  --color-indigo-700: #38309E;
+  --color-emerald-500: #16A085; /* Success */
+  --color-emerald-600: #12836D;
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: #F8F7F2; /* Warm Ivory */
+  --foreground: #151A2E; /* Text Primary */
+  --card: #FFFFFF; /* Surface */
+  --card-foreground: #151A2E;
+  --popover: #FFFFFF; /* Surface */
+  --popover-foreground: #151A2E;
+  --primary: #5146E5; /* Indigo */
+  --primary-hover: #4338CA;
+  --primary-light: #EDEBFF; /* Soft Lavender */
+  --primary-foreground: #FFFFFF;
+  --secondary: #18B6A4; /* Teal Mint */
+  --secondary-hover: #0F9F90;
+  --secondary-light: #E6F8F5;
+  --secondary-foreground: #FFFFFF;
+  --muted: #F3F4F8; /* Surface Secondary */
+  --muted-foreground: #5F667A; /* Text Secondary */
+  --accent: #EDEBFF; /* Primary Light hover surface */
+  --accent-foreground: #151A2E;
+  --accent-light: #FFF0EC; /* Coral tint */
+  --destructive: #E05252; /* Error */
+  --success: #16A085;
+  --success-light: #E8F7F3;
+  --warning: #F4B942;
+  --warning-light: #FFF7E3;
+  --error: #E05252;
+  --error-light: #FDECEC;
+  --info: #3B82F6;
+  --surface: #FFFFFF;
+  --surface-secondary: #F3F4F8;
+  --text-secondary: #5F667A;
+  --text-muted: #8D94A8;
+  --border: #E3E5EC;
+  --border-strong: #CDD1DC;
+  --input: #E3E5EC;
+  --ring: #5146E5;
+  --chart-1: #5146E5; /* Indigo */
+  --chart-2: #18B6A4; /* Teal Mint */
+  --chart-3: #FF8066; /* Coral */
+  --chart-4: #F4B942; /* Warning Gold */
+  --chart-5: #3B82F6; /* Info Blue */
+  --sidebar: #151A2E; /* Deep Space */
+  --sidebar-foreground: #F8F7F2;
+  --sidebar-primary: #5146E5;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #242A45;
+  --sidebar-accent-foreground: #F8F7F2;
+  --sidebar-border: #2C3250;
+  --sidebar-ring: #6A5FFF;
+}
+
+.dark {
+  --background: #151A2E; /* Deep Space */
+  --foreground: #F8F7F2; /* Warm Ivory */
+  --card: #1B2138;
+  --card-foreground: #F8F7F2;
+  --popover: #1B2138;
+  --popover-foreground: #F8F7F2;
+  --primary: #6A5FFF; /* Indigo (brighter for dark) */
+  --primary-hover: #5146E5;
+  --primary-light: #242A45;
+  --primary-foreground: #FFFFFF;
+  --secondary: #18B6A4; /* Teal Mint */
+  --secondary-hover: #0F9F90;
+  --secondary-light: #14333A;
+  --secondary-foreground: #FFFFFF;
+  --muted: #242A45;
+  --muted-foreground: #A8A5C8;
+  --accent: #242A45;
+  --accent-foreground: #F8F7F2;
+  --accent-light: #3A2A30;
+  --destructive: #E05252;
+  --success: #2BBFA9;
+  --success-light: #142E2E;
+  --warning: #F4B942;
+  --warning-light: #332B18;
+  --error: #F26666;
+  --error-light: #3A2226;
+  --info: #5B97F7;
+  --surface: #1B2138;
+  --surface-secondary: #242A45;
+  --text-secondary: #A8A5C8;
+  --text-muted: #8D94A8;
+  --border: #2C3250;
+  --border-strong: #3A405F;
+  --input: #2C3250;
+  --ring: #6A5FFF;
+  --chart-1: #6A5FFF;
+  --chart-2: #18B6A4;
+  --chart-3: #FF8066;
+  --chart-4: #F4B942;
+  --chart-5: #3B82F6;
+  --sidebar: #10162A;
+  --sidebar-foreground: #F8F7F2;
+  --sidebar-primary: #5146E5;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #242A45;
+  --sidebar-accent-foreground: #F8F7F2;
+  --sidebar-border: #2C3250;
+  --sidebar-ring: #6A5FFF;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Fix z-index issues with Leaflet maps */
+/* Ensure maps don't interfere with modals, dropdowns, and other UI elements */
+
+.leaflet-container {
+  z-index: 1 !important;
+}
+
+/* Ensure popup appears above other content */
+.leaflet-popup {
+  z-index: 1000 !important;
+}
+
+/* Ensure popup content appears above popup */
+.leaflet-popup-content-wrapper {
+  z-index: 1001 !important;
+}
+
+/* Ensure popup tip appears above popup content */
+.leaflet-popup-tip {
+  z-index: 1002 !important;
+}
+
+/* Ensure zoom controls appear above map but below popups */
+.leaflet-control-container .leaflet-control {
+  z-index: 10 !important;
+}
+
+/* Ensure zoom controls appear above map */
+.leaflet-control-container .leaflet-control-zoom {
+  z-index: 11 !important;
+}
+
+/* Ensure attribution appears above map */
+.leaflet-control-container .leaflet-control-attribution {
+  z-index: 12 !important;
+}
+
+/* Custom marker styling */
+.custom-marker {
+  z-index: 20 !important;
+}
+
+/* Ensure marker popups appear above markers */
+.custom-marker + .leaflet-popup {
+  z-index: 1000 !important;
+}
+
+/* Fix for modal dialogs appearing behind map */
+[data-radix-popper-content-wrapper] {
+  z-index: 1100 !important;
+}
+
+/* Fix for dropdown menus appearing behind map */
+[data-radix-dropdown-menu-content] {
+  z-index: 1100 !important;
+}
+
+/* Fix for select dropdowns appearing behind map */
+[data-radix-select-content] {
+  z-index: 1100 !important;
+}
+
+/* Fix for tooltips appearing behind map */
+[data-radix-tooltip-content] {
+  z-index: 1100 !important;
+}
+
+/* Fix for alert dialogs appearing behind map */
+[data-radix-alert-dialog-overlay] {
+  z-index: 1100 !important;
+}
+
+[data-radix-alert-dialog-content] {
+  z-index: 1101 !important;
+}

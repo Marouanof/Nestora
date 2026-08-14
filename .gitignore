@@ -1,0 +1,36 @@
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.classpath
+.project
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Crash dumps / logs
+erl_crash.dump
+*.log
+
+# Java / Maven
+target/
+*.class
+.mvn/wrapper/maven-wrapper.jar
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Frontend
+node_modules/
+dist/
+dist-ssr/
+
+# Runtime data
+uploads/
