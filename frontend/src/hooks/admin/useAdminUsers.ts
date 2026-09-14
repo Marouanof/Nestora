@@ -33,12 +33,11 @@ export const useUserSearch = (query: string, page = 0, size = 20) => {
   });
 };
 
-// Filter users hook
+// Filter users hook (backend: role, city, country uniquement — statut filtré côté client)
 export const useUserFilters = (filters: {
   role?: string;
   city?: string;
   country?: string;
-  active?: boolean;
 }, page = 0, size = 20) => {
   return useQuery({
     queryKey: adminUserKeys.filter(filters, page, size),
@@ -157,6 +156,43 @@ export const useForceLogout = () => {
     },
     onError: (error: any) => {
       const message = error?.response?.data?.message || 'Failed to logout user';
+      toast.error(message);
+    },
+  });
+};
+
+// Approve KYC mutation
+export const useApproveKyc = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => AdminUserService.approveKyc(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: adminUserKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: adminUserKeys.lists() });
+      toast.success('KYC approved successfully');
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Failed to approve KYC';
+      toast.error(message);
+    },
+  });
+};
+
+// Reject KYC mutation
+export const useRejectKyc = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
+      AdminUserService.rejectKyc(id, reason),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: adminUserKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: adminUserKeys.lists() });
+      toast.success('KYC rejected successfully');
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Failed to reject KYC';
       toast.error(message);
     },
   });

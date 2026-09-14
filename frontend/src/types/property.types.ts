@@ -56,9 +56,6 @@ export interface PropertySummary {
   type: string;
   address: PropertyAddress;
   pricePerNight: number;
-  pricePerNightEth: number;
-  suggestedPricePerNight?: number;
-  suggestedPricePerNightEth?: number;
   maxGuests: number;
   bedrooms: number;
   bathrooms: number;
@@ -71,6 +68,7 @@ export interface PropertySummary {
   ownerFirstName: string;
   ownerLastName: string;
   ownerProfilePicture?: string;
+  suggestedPricePerNight?: number | null;
 }
 
 export interface Property {
@@ -80,9 +78,6 @@ export interface Property {
   type: string;
   address: PropertyAddress;
   pricePerNight: number;
-  pricePerNightEth: number;
-  suggestedPricePerNight?: number;
-  suggestedPricePerNightEth?: number;
   maxGuests: number;
   bedrooms: number;
   bathrooms: number;
@@ -98,10 +93,10 @@ export interface Property {
   updatedAt: string;
   status: 'ACTIVE' | 'PENDING_ADMIN' | 'REJECTED';
   ownerId: number;
-  ownerWalletAddress?: string;
   ownerFirstName: string;
   ownerLastName: string;
   ownerProfilePicture?: string;
+  suggestedPricePerNight?: number | null;
 }
 
 export interface PropertySearchParams {
@@ -143,7 +138,7 @@ export interface CreatePropertyData {
   ownershipDocumentUrl?: string;
 }
 
-export interface UpdatePropertyData extends Partial<CreatePropertyData> {}
+export type UpdatePropertyData = Partial<CreatePropertyData>;
 
 export interface BlockDatesData {
   startDate: string;
@@ -173,17 +168,21 @@ export interface UserProfile {
   lastName: string;
   enabled: boolean;
   emailVerified: boolean;
-  walletVerified: boolean;
-  role: 'ROLE_TENANT' | 'ROLE_OWNER' | 'ROLE_ADMIN';
+  role?: 'ROLE_TENANT' | 'ROLE_OWNER' | 'ROLE_ADMIN';
+  roles?: Array<'ROLE_TENANT' | 'ROLE_OWNER' | 'ROLE_ADMIN'>;
   description?: string;
   dateNaissance?: string;
   country?: string;
   city?: string;
   phone?: string;
-  walletAddress?: string;
+  phoneVerified?: boolean;
+  accountType?: 'INDIVIDUAL' | 'COMPANY';
   photoUrl?: string;
   kycRectoUrl?: string;
   kycVersoUrl?: string;
+  kycStatus?: string;
+  kycVerified?: boolean;
+  rejectionReason?: string;
   createdAt: string;
   lastLogin?: string;
 }
@@ -216,7 +215,6 @@ export interface AdminProperty {
   ownerFirstName: string;
   ownerLastName: string;
   ownerProfilePicture: string;
-  ownerWalletAddress: string;
   ownershipDocumentUrl: string | null;
   status: 'ACTIVE' | 'PENDING_ADMIN' | 'REJECTED';
   minStayNights: number;

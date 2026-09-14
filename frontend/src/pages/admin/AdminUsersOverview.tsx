@@ -42,10 +42,13 @@ import {
   UserX,
   Trash2,
   LogOut,
-  Shield
+  Shield,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
-import { useUsersList, useUserSearch, useUserFilters, useEnableUser, useDisableUser, useChangeRole, useForceLogout, useDeleteUser } from '@/hooks/admin/useAdminUsers';
+import { useUsersList, useUserSearch, useUserFilters, useEnableUser, useDisableUser, useChangeRole, useForceLogout, useDeleteUser, useApproveKyc, useRejectKyc } from '@/hooks/admin/useAdminUsers';
 import type { AdminUser } from '@/services/adminUser.service';
+import { getPrimaryRole, isUserActive } from '@/services/adminUser.service';
 
 export const AdminUsersOverview: React.FC = () => {
   const navigate = useNavigate();
@@ -66,12 +69,17 @@ export const AdminUsersOverview: React.FC = () => {
     role: roleFilter !== 'all' ? roleFilter : undefined,
     city: cityFilter || undefined,
     country: countryFilter || undefined,
-    active: statusFilter !== 'all' ? statusFilter === 'active' : undefined,
   }, page, 20);
 
   // Choose the active query
   const activeQuery = hasSearch ? userSearchQuery : hasFilters ? userFiltersQuery : usersListQuery;
-  const { data, isLoading, error } = activeQuery;
+  const { data: rawData, isLoading, error } = activeQuery;
+
+  // Backend sans filtre statut → filtre client sur la page courante
+  const statusActive = statusFilter !== 'all' ? statusFilter === 'active' : undefined;
+  const data = rawData && statusActive !== undefined
+    ? { ...rawData, content: rawData.content.filter((u) => isUserActive(u) === statusActive) }
+    : rawData;
 
   // Mutations
   const enableUserMutation = useEnableUser();
@@ -79,6 +87,8 @@ export const AdminUsersOverview: React.FC = () => {
   const changeRoleMutation = useChangeRole();
   const forceLogoutMutation = useForceLogout();
   const deleteUserMutation = useDeleteUser();
+  const approveKycMutation = useApproveKyc();
+  const rejectKycMutation = useRejectKyc();
 
   // Dialog states
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; user: AdminUser | null }>({
@@ -89,6 +99,11 @@ export const AdminUsersOverview: React.FC = () => {
     open: false,
     user: null,
     newRole: '',
+  });
+  const [kycDialog, setKycDialog] = useState<{ mode: 'approve' | 'reject'; user: AdminUser | null; reason: string }>({
+    mode: 'approve',
+    user: null,
+    reason: '',
   });
 
   const handleEnableUser = async (userId: number) => {
@@ -113,7 +128,37 @@ export const AdminUsersOverview: React.FC = () => {
     setDeleteDialog({ open: false, user: null });
   };
 
-  const getRoleBadgeVariant = (role: string) => {
+  const handleApproveKyc = async () => {
+    if (!kycDialog.user) return;
+    await approveKycMutation.mutateAsync(kycDialog.user.id);
+    setKycDialog({ mode: 'approve', user: null, reason: '' });
+  };
+
+  const handleRejectKyc = async () => {
+    if (!kycDialog.user || !kycDialog.reason.trim()) return;
+    await rejectKycMutation.mutateAsync({ id: kycDialog.user.id, reason: kycDialog.reason.trim() });
+    setKycDialog({ mode: 'reject', user: null, reason: '' });
+  };
+
+  const isKycPending = (user?: AdminUser) =>
+    user?.kycStatus === 'PENDING' || user?.kycStatus === 'IN_REVIEW';
+
+  const getKycBadgeVariant = (user?: AdminUser) => {
+    if (user?.kycVerified || user?.kycStatus === 'VERIFIED') return 'default';
+    if (user?.kycStatus === 'PENDING' || user?.kycStatus === 'IN_REVIEW') return 'secondary';
+    if (user?.kycStatus === 'REJECTED') return 'destructive';
+    return 'outline';
+  };
+
+  const getKycLabel = (user?: AdminUser) => {
+    if (user?.kycVerified || user?.kycStatus === 'VERIFIED') return 'Verified';
+    if (user?.kycStatus === 'PENDING') return 'Pending';
+    if (user?.kycStatus === 'IN_REVIEW') return 'In Review';
+    if (user?.kycStatus === 'REJECTED') return 'Rejected';
+    return 'N/A';
+  };
+
+  const getRoleBadgeVariant = (role?: string) => {
     switch (role) {
       case 'ROLE_ADMIN': return 'destructive';
       case 'ROLE_OWNER': return 'default';
@@ -122,12 +167,12 @@ export const AdminUsersOverview: React.FC = () => {
     }
   };
 
-  const getRoleDisplayName = (role: string) => {
+  const getRoleDisplayName = (role?: string) => {
     switch (role) {
       case 'ROLE_ADMIN': return 'Admin';
       case 'ROLE_OWNER': return 'Owner';
       case 'ROLE_TENANT': return 'Tenant';
-      default: return role;
+      default: return role ?? 'Unknown';
     }
   };
 
@@ -236,6 +281,7 @@ export const AdminUsersOverview: React.FC = () => {
                     <TableHead>Role</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>KYC</TableHead>
                     <TableHead>Joined</TableHead>
                     <TableHead className="w-12">Actions</TableHead>
                   </TableRow>
@@ -258,16 +304,21 @@ export const AdminUsersOverview: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getRoleBadgeVariant(user.role)}>
-                          {getRoleDisplayName(user.role)}
+                        <Badge variant={getRoleBadgeVariant(getPrimaryRole(user))}>
+                          {getRoleDisplayName(getPrimaryRole(user))}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         {user.city && user.country ? `${user.city}, ${user.country}` : 'N/A'}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={user.active ? 'default' : 'secondary'}>
-                          {user.active ? 'Active' : 'Inactive'}
+                        <Badge variant={isUserActive(user) ? 'default' : 'secondary'}>
+                          {isUserActive(user) ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getKycBadgeVariant(user)}>
+                          {getKycLabel(user)}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -285,7 +336,7 @@ export const AdminUsersOverview: React.FC = () => {
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            {user.active ? (
+                            {isUserActive(user) ? (
                               <DropdownMenuItem onClick={() => handleDisableUser(user.id)}>
                                 <UserX className="h-4 w-4 mr-2" />
                                 Disable User
@@ -300,6 +351,18 @@ export const AdminUsersOverview: React.FC = () => {
                               <Shield className="h-4 w-4 mr-2" />
                               Change Role
                             </DropdownMenuItem>
+                            {isKycPending(user) && (
+                              <>
+                                <DropdownMenuItem onClick={() => setKycDialog({ mode: 'approve', user, reason: '' })}>
+                                  <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
+                                  Approve KYC
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setKycDialog({ mode: 'reject', user, reason: '' })}>
+                                  <XCircle className="h-4 w-4 mr-2 text-destructive" />
+                                  Reject KYC
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             <DropdownMenuItem onClick={() => handleForceLogout(user.id)}>
                               <LogOut className="h-4 w-4 mr-2" />
                               Force Logout
@@ -319,11 +382,11 @@ export const AdminUsersOverview: React.FC = () => {
                 </TableBody>
               </Table>
 
-              {/* Pagination */}
+              {/* Pagination (Spring Page.number, 0-indexé) */}
               {data && data.totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4">
                   <p className="text-sm text-muted-foreground">
-                    Showing {data.page * data.size + 1} to {Math.min((data.page + 1) * data.size, data.totalElements)} of {data.totalElements} users
+                    Showing {data.number * data.size + 1} to {Math.min((data.number + 1) * data.size, data.totalElements)} of {data.totalElements} users
                   </p>
                   <div className="flex items-center gap-2">
                     <Button
@@ -412,6 +475,47 @@ export const AdminUsersOverview: React.FC = () => {
               disabled={!roleChangeDialog.newRole}
             >
               Change Role
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* KYC Dialog */}
+      <AlertDialog
+        open={kycDialog.user !== null}
+        onOpenChange={(open) => { if (!open) setKycDialog({ mode: 'approve', user: null, reason: '' }); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {kycDialog.mode === 'approve' ? 'Approve KYC Verification' : 'Reject KYC Verification'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {kycDialog.mode === 'approve'
+                ? `Approve the KYC verification for ${kycDialog.user?.firstName} ${kycDialog.user?.lastName}? This will allow them to publish properties.`
+                : `Provide a reason why the KYC verification of ${kycDialog.user?.firstName} ${kycDialog.user?.lastName} is being rejected.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {kycDialog.mode === 'reject' && (
+            <Input
+              value={kycDialog.reason}
+              onChange={(e) => setKycDialog({ ...kycDialog, reason: e.target.value })}
+              placeholder="Reason for rejection (required)"
+              className="mt-2"
+            />
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setKycDialog({ mode: 'approve', user: null, reason: '' })}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className={kycDialog.mode === 'reject' ? 'bg-red-600 hover:bg-red-700' : ''}
+              disabled={kycDialog.mode === 'reject' && !kycDialog.reason.trim()}
+              onClick={kycDialog.mode === 'approve' ? handleApproveKyc : handleRejectKyc}
+            >
+              {kycDialog.mode === 'approve' ? 'Approve' : 'Reject'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
