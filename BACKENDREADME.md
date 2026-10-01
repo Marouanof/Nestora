@@ -1,9 +1,9 @@
 <div align="center">
 
-  <h1>RentChain · Backend Microservices</h1>
+  <h1>Nestora · Backend Microservices</h1>
 
   <p>
-    Backend d’une dapp de location immobilière moderne,<br/>
+    Backend d’une plateforme de location immobilière moderne,<br/>
     construit autour de <b>microservices Spring Boot</b> sécurisés par JWT<br/>
     et de <b>paiements par carte bancaire (Stripe)</b> pour les réservations.
   </p>

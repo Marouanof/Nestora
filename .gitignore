@@ -12,10 +12,12 @@
 .env
 .env.*
 !.env.example
+**/application-local.yml
 
 # Crash dumps / logs
 erl_crash.dump
 *.log
+logs/
 
 # Java / Maven
 target/
