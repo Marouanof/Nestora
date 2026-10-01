@@ -1,5 +1,6 @@
 package com.userservice.userservice.dto;
 
+import com.userservice.userservice.enums.AccountType;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 
@@ -13,5 +14,6 @@ public record UpdateProfileRequest(
         @PastOrPresent(message = "La date de naissance doit être dans le passé")
         LocalDate dateNaissance,
         @Size(max = 100) String country,
-        @Size(max = 100) String city
+        @Size(max = 100) String city,
+        AccountType accountType
 ) {}

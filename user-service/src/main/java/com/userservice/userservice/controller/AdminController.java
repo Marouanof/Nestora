@@ -3,13 +3,15 @@ package com.userservice.userservice.controller;
 import com.userservice.userservice.dto.CreateUserRequest;
 import com.userservice.userservice.dto.UpdateProfileRequest;
 import com.userservice.userservice.dto.UserResponse;
-import com.userservice.userservice.enu.RoleName;
+import com.userservice.userservice.enums.RoleName;
+import com.userservice.userservice.kyc.service.KycService;
 import com.userservice.userservice.service.AdminService;
 import com.userservice.userservice.service.AuthService;
-import com.userservice.userservice.service.KycDocumentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+
+import java.util.List;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -23,7 +25,7 @@ public class AdminController {
 
     private final AdminService adminService;
     private final AuthService authService; // Ajouté pour la méthode forceLogoutUser
-    private final KycDocumentService kycDocumentService;
+    private final KycService kycService;
 
     @GetMapping("/users")
     public ResponseEntity<Page<UserResponse>> getAllUsers(
@@ -95,16 +97,16 @@ public class AdminController {
     }
 
     @PutMapping("/users/{id}/role")
-    public ResponseEntity<?> updateUserRole(
+    public ResponseEntity<?> updateUserRoles(
             @PathVariable Long id,
-            @RequestParam RoleName newRole) {
-        adminService.updateUserRole(id, newRole);
-        return ResponseEntity.ok("Rôle mis à jour avec succès");
+            @RequestParam List<RoleName> roles) {
+        adminService.updateUserRoles(id, roles);
+        return ResponseEntity.ok("Rôles mis à jour avec succès");
     }
 
     @PostMapping("/users/{id}/kyc/approve")
     public ResponseEntity<?> approveKyc(@PathVariable Long id) {
-        kycDocumentService.approve(id);
+        kycService.approve(id);
         return ResponseEntity.ok("KYC approuvé avec succès");
     }
 
@@ -112,7 +114,7 @@ public class AdminController {
     public ResponseEntity<?> rejectKyc(
             @PathVariable Long id,
             @RequestParam String reason) {
-        kycDocumentService.reject(id, reason);
+        kycService.reject(id, reason);
         return ResponseEntity.ok("KYC rejeté avec succès");
     }
 }

@@ -3,12 +3,16 @@ package com.userservice.userservice.service;
 import com.userservice.userservice.dto.CreateUserRequest;
 import com.userservice.userservice.dto.UpdateProfileRequest;
 import com.userservice.userservice.dto.UserResponse;
-import com.userservice.userservice.entity.KycDocument;
-import com.userservice.userservice.entity.KycStatus;
+import com.userservice.userservice.entity.Role;
 import com.userservice.userservice.entity.User;
-import com.userservice.userservice.enu.RoleName;
+import com.userservice.userservice.enums.RoleName;
 import com.userservice.userservice.exception.UserNotFoundException;
+import com.userservice.userservice.kyc.entity.KycDocument;
+import com.userservice.userservice.kyc.entity.KycVerification;
+import com.userservice.userservice.kyc.enums.KycVerificationStatus;
+import com.userservice.userservice.kyc.service.KycService;
 import com.userservice.userservice.repository.RefreshTokenRepository;
+import com.userservice.userservice.repository.RoleRepository;
 import com.userservice.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,18 +22,20 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class AdminService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepository refreshTokenRepository;
-    private final KycDocumentService kycDocumentService;
+    private final KycService kycService;
 
     @Transactional
     public void createUser(CreateUserRequest request) {
-        System.out.println("Appel de la fonction!!");
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new com.userservice.userservice.exception.EmailAlreadyExistsException("Un utilisateur avec cet email existe déjà");
         }
@@ -42,14 +48,8 @@ public class AdminService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setEnabled(true);
         user.setEmailVerified(true);
-        try {
-            RoleName roleName = RoleName.valueOf(request.getRole().toUpperCase());
-            user.setRole(roleName);
-        } catch (IllegalArgumentException e) {
-            user.setRole(RoleName.ROLE_TENANT);
-        }
+        user.addRole(resolveRole(request.getRole()));
         userRepository.save(user);
-        System.out.println("User créé !!");
     }
 
     public Page<UserResponse> getAllUsers(Pageable pageable) {
@@ -104,7 +104,7 @@ public class AdminService {
 
         if (role != null) {
             spec = spec.and((root, query, cb) ->
-                    cb.equal(root.get("role"), role));
+                    cb.equal(root.join("roles").get("name"), role));
         }
 
         if (city != null && !city.isBlank()) {
@@ -153,16 +153,36 @@ public class AdminService {
     }
 
     @Transactional
-    public void updateUserRole(Long userId, RoleName newRole) {
+    public void updateUserRoles(Long userId, List<RoleName> newRoles) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        user.setRole(newRole);
+        user.getRoles().clear();
+        if (newRoles != null) {
+            for (RoleName name : newRoles) {
+                roleRepository.findByName(name).ifPresent(user.getRoles()::add);
+            }
+        }
         userRepository.save(user);
     }
 
+    private Role resolveRole(String roleName) {
+        if (roleName == null || roleName.isBlank()) {
+            return roleRepository.findByName(RoleName.ROLE_TENANT)
+                    .orElseThrow(() -> new IllegalStateException("ROLE_TENANT introuvable"));
+        }
+        try {
+            return roleRepository.findByName(RoleName.valueOf(roleName.toUpperCase()))
+                    .orElseThrow(() -> new IllegalStateException("Rôle introuvable: " + roleName));
+        } catch (IllegalArgumentException e) {
+            return roleRepository.findByName(RoleName.ROLE_TENANT)
+                    .orElseThrow(() -> new IllegalStateException("ROLE_TENANT introuvable"));
+        }
+    }
+
     private UserResponse mapToUserResponse(User user) {
-        KycDocument kyc = kycDocumentService.getLatestKyc(user.getId()).orElse(null);
+        KycVerification verification = kycService.getLatestVerification(user.getId()).orElse(null);
+        KycDocument doc = kycService.getLatestDocument(user.getId()).orElse(null);
         return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
@@ -170,18 +190,19 @@ public class AdminService {
                 .lastName(user.getLastName())
                 .enabled(user.isEnabled())
                 .emailVerified(user.isEmailVerified())
-                .role(user.getRole())
+                .roles(user.getRoles().stream().map(Role::getName).toList())
                 .description(user.getDescription())
                 .dateNaissance(user.getDateNaissance())
                 .country(user.getCountry())
                 .city(user.getCity())
                 .phone(user.getPhone())
+                .phoneVerified(user.isPhoneVerified())
                 .photoUrl(user.getPhotoUrl())
-                .kycRectoUrl(kyc != null ? kyc.getRectoUrl() : null)
-                .kycVersoUrl(kyc != null ? kyc.getVersoUrl() : null)
-                .kycStatus(kyc != null ? kyc.getStatus().name() : null)
-                .kycVerified(kyc != null && kyc.getStatus() == KycStatus.APPROVED)
-                .rejectionReason(kyc != null ? kyc.getRejectionReason() : null)
+                .kycRectoUrl(doc != null ? doc.getRectoUrl() : null)
+                .kycVersoUrl(doc != null ? doc.getVersoUrl() : null)
+                .kycStatus(verification != null ? verification.getStatus().name() : null)
+                .kycVerified(verification != null && verification.getStatus() == KycVerificationStatus.VERIFIED)
+                .rejectionReason(verification != null ? verification.getRejectionReason() : null)
                 .createdAt(user.getCreatedAt())
                 .lastLogin(user.getLastLogin())
                 .build();

@@ -15,7 +15,10 @@ public class ErrorResponse {
     private LocalDateTime timestamp;
     private int status;
     private String error;
+    private String code;
     private String message;
     private String path;
+    private java.util.List<String> missing;
+    private String href;
     private java.util.Map<String, String> validationErrors;
 }

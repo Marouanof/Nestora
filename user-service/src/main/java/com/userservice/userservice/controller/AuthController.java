@@ -26,8 +26,12 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        AuthResponse response = authService.login(request);
+    public ResponseEntity<AuthResponse> login(
+            @Valid @RequestBody LoginRequest request,
+            @RequestHeader(value = "User-Agent", required = false) String userAgent,
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
+        String ip = httpRequest != null ? httpRequest.getRemoteAddr() : null;
+        AuthResponse response = authService.login(request, userAgent, ip);
         return ResponseEntity.ok(response);
     }
 
@@ -57,29 +61,14 @@ public class AuthController {
 
     @GetMapping("/verify-email")
     public ResponseEntity<String> verifyEmail(@RequestParam String token) {
-        // ✅ MODIFIER : Appeler directement AuthService
         String message = authService.verifyEmail(token);
         return ResponseEntity.ok(message);
     }
 
     @PostMapping("/resend-verification")
     public ResponseEntity<String> resendVerification(@RequestParam @Email String email) {
-        // ✅ MODIFIER : Appeler directement AuthService
         authService.resendVerificationEmail(email);
         return ResponseEntity.ok("Email de vérification renvoyé");
-    }
-
-    @PostMapping("/test")
-    public ResponseEntity<java.util.Map<String, String>> createTestAdmin() {
-        authService.createTestAdmin();
-        authService.createTestUser();
-        
-        java.util.Map<String, String> response = new java.util.HashMap<>();
-        response.put("message", "Données de test initialisées avec succès");
-        response.put("admin", "admin@test.com");
-        response.put("user", "user@test.com");
-        
-        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/change-password")

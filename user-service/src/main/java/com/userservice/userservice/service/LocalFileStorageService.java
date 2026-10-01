@@ -1,6 +1,5 @@
 package com.userservice.userservice.service;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -15,7 +14,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 @Service
-@Slf4j
 @ConditionalOnProperty(name = "storage.type", havingValue = "local", matchIfMissing = true)
 public class LocalFileStorageService implements FileStorageService {
 

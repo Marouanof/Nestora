@@ -1,4 +1,4 @@
-package com.userservice.userservice.enu;
+package com.userservice.userservice.enums;
 
 public enum RoleName {
     ROLE_OWNER,      // Propriétaire

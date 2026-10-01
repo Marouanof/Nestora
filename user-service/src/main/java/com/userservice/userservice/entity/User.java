@@ -1,6 +1,7 @@
 package com.userservice.userservice.entity;
 
-import com.userservice.userservice.enu.RoleName;
+import com.userservice.userservice.enums.AccountType;
+import com.userservice.userservice.enums.RoleName;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -12,7 +13,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "users",
@@ -51,6 +53,10 @@ public class User implements UserDetails {
     private String country; // ✅ Nouveau
     private String city; // ✅ Nouveau
 
+    @Column(name = "account_type")
+    @Enumerated(EnumType.STRING)
+    private AccountType accountType;
+
     // Email verification fields (au lieu de table séparée)
     @Column(name = "email_verification_token")
     private String emailVerificationToken; // ✅ Nouveau - token hashé
@@ -61,10 +67,27 @@ public class User implements UserDetails {
     @Column(name = "email_verified", nullable = false)
     private boolean emailVerified = false;
 
-    // Single role instead of ManyToMany
-    @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false)
-    private RoleName role = RoleName.ROLE_TENANT; // ✅ Simplifié - rôle par défaut
+    @Column(name = "pending_email")
+    private String pendingEmail;
+
+    @Column(name = "pending_email_token")
+    private String pendingEmailToken;
+
+    @Column(name = "pending_email_expiry")
+    private LocalDateTime pendingEmailExpiry;
+
+    @Column(name = "phone_verified", nullable = false)
+    private boolean phoneVerified = false;
+
+    @Column(name = "terms_accepted_at")
+    private LocalDateTime termsAcceptedAt;
+
+    // Many-to-many roles
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id"))
+    private Set<Role> roles = new HashSet<>();
 
     @Column(name = "is_enabled", nullable = false)
     private boolean enabled = true;
@@ -80,13 +103,31 @@ public class User implements UserDetails {
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
 
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts = 0;
+
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;
+
+    @Column(name = "last_verification_email_sent_at")
+    private LocalDateTime lastVerificationEmailSentAt;
+
     @Column(name = "photo_url", length = 500)
     private String photoUrl;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // ✅ Simplifié : retourne juste le rôle unique
-        return Collections.singletonList(new SimpleGrantedAuthority(role.name()));
+        return roles.stream()
+                .map(role -> new SimpleGrantedAuthority(role.getName().name()))
+                .toList();
+    }
+
+    public void addRole(Role role) {
+        this.roles.add(role);
+    }
+
+    public boolean hasRole(RoleName roleName) {
+        return roles.stream().anyMatch(r -> r.getName() == roleName);
     }
 
     public String getFullName() {

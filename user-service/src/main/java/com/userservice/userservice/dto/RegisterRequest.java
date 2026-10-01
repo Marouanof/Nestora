@@ -27,17 +27,28 @@ public class RegisterRequest {
     @Size(min = 6, message = "Password must be at least 6 characters")
     private String password;
 
+    private String confirmPassword;
+
+    private Boolean acceptTerms;
+
+    @AssertTrue(message = "Passwords do not match")
+    public boolean isPasswordMatching() {
+        return password != null && password.equals(confirmPassword);
+    }
+
+    @AssertTrue(message = "You must accept the terms and conditions")
+    public boolean isTermsAccepted() {
+        return Boolean.TRUE.equals(acceptTerms);
+    }
+
     @NotBlank(message = "Role is required")
     private String role = "ROLE_TENANT";
 
     private String description;
-    @NotNull(message = "La date de naissance est obligatoire")
-    @PastOrPresent(message = "La date de naissance doit être dans le passé")
+
     private LocalDate dateNaissance;
 
-    @NotBlank(message = "Le pays est obligatoire")
     private String country;
 
-    @NotBlank(message = "La ville est obligatoire")
     private String city;
 }

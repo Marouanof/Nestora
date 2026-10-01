@@ -1,5 +1,6 @@
 package com.userservice.userservice.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,6 +11,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+@Slf4j
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
@@ -37,8 +39,6 @@ public class WebConfig implements WebMvcConfigurer {
                 .addResourceLocations(location)
                 .setCachePeriod(0); // optionnel : désactive le cache en dev pour voir les changements immédiats
 
-        // Log utile pour déboguer
-        System.out.println("🔗 Fichiers statiques servis depuis : " + location);
-        // ou mieux avec lombok @Slf4j : log.info("Fichiers statiques servis depuis : {}", location);
+        log.info("Fichiers statiques servis depuis : {}", location);
     }
 }
