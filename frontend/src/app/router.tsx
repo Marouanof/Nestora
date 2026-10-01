@@ -30,6 +30,7 @@ import {
   BookingDetailsPage,
   BookingSuccessPage,
   BookingCancelPage,
+  WishlistPage,
   OwnerStatsPage,
   AdminDashboardPage,
   AdminPropertiesPage,
@@ -91,6 +92,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireRole roles={["ROLE_TENANT", "ROLE_OWNER", "ROLE_ADMIN"]}>
             <ProfilePage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: "wishlist",
+        element: (
+          <RequireRole roles={["ROLE_TENANT", "ROLE_OWNER", "ROLE_ADMIN"]}>
+            <WishlistPage />
           </RequireRole>
         ),
       },

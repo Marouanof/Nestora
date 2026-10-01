@@ -45,7 +45,8 @@ import {
   Building2,
   BarChart3,
   Shield,
-  Zap
+  Zap,
+  Heart
 } from 'lucide-react';
 import Logo from "@/assets/logo.svg?react";
 import { useState } from 'react';
@@ -261,6 +262,12 @@ function Navbar() {
                       <Link to="/profile" className="flex items-center gap-2">
                         <User className="h-4 w-4" />
                         Profile Settings
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/wishlist" className="flex items-center gap-2">
+                        <Heart className="h-4 w-4" />
+                        Wishlist
                       </Link>
                     </DropdownMenuItem>
                     {user?.role === 'ROLE_TENANT' && (

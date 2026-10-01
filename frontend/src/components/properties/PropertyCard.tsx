@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Heart, Star, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { formatMad } from '@/lib/utils';
+import { useWishlist } from '@/hooks/useWishlist';
 import { AiBadge } from '@/components/ai/AiBadge';
 import type { PropertySummary } from '@/types/property.types';
 
@@ -21,7 +22,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
   onDelete,
 }) => {
   const navigate = useNavigate();
-  const [liked, setLiked] = useState(false);
+  const { liked, toggling, toggle } = useWishlist(property.id);
 
   // Get the main image (first image with displayOrder 0, or first image if no displayOrder 0)
   const mainImage = property.images?.find((img) => img.displayOrder === 0) || property.images?.[0];
@@ -70,8 +71,9 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           className="absolute right-3 top-3 h-9 w-9 rounded-full bg-white/85 text-foreground shadow-sm backdrop-blur transition-transform hover:scale-105 hover:bg-white active:scale-95 dark:bg-black/45 dark:text-white dark:hover:bg-black/65"
           onClick={(e) => {
             e.stopPropagation();
-            setLiked((v) => !v);
+            toggle();
           }}
+          disabled={toggling}
         >
           <Heart className={`h-4 w-4 transition-colors ${liked ? 'fill-red-500 text-red-500' : ''}`} />
         </Button>

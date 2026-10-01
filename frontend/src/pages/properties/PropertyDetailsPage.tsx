@@ -39,6 +39,7 @@ import { toast } from 'sonner';
 import { formatMad } from '@/lib/utils';
 import { authStore } from '@/store/auth.store';
 import { AiBadge } from '@/components/ai/AiBadge';
+import { useWishlist } from '@/hooks/useWishlist';
 import type { PaginatedResponse, Review } from '@/types/property.types';
 
 const AMENITY_ICONS: { pattern: RegExp; icon: React.ReactNode }[] = [
@@ -69,7 +70,7 @@ export const PropertyDetailsPage: React.FC = () => {
   const { property, loading, error, refetch } = usePropertyDetails(propertyId);
   const [unavailableDates, setUnavailableDates] = useState<string[]>([]);
   const [reviews, setReviews] = useState<PaginatedResponse<Review> | null>(null);
-  const [liked, setLiked] = useState(false);
+  const { liked, toggling, toggle } = useWishlist(propertyId);
   const { user } = authStore();
   const isTenant = user?.role === 'ROLE_TENANT';
   const navigate = useNavigate();
@@ -169,7 +170,8 @@ export const PropertyDetailsPage: React.FC = () => {
             variant="secondary"
             size="icon"
             aria-label={liked ? 'Remove from favorites' : 'Add to favorites'}
-            onClick={() => setLiked((v) => !v)}
+            onClick={toggle}
+            disabled={toggling}
             className="h-9 w-9 rounded-full bg-white/90 shadow-sm backdrop-blur hover:bg-white dark:bg-black/50 dark:text-white dark:hover:bg-black/70"
           >
             <Heart className={`h-4 w-4 transition-colors ${liked ? 'fill-red-500 text-red-500' : ''}`} />
