@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Star, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatMad } from '@/lib/utils';
 import type { ReviewData } from '@/types/property.types';
 
 export const SubmitReviewPage: React.FC = () => {
@@ -155,7 +156,7 @@ export const SubmitReviewPage: React.FC = () => {
                     {property.address.city}, {property.address.country}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    ${property.pricePerNight} per night
+                    {formatMad(property.pricePerNight)} per night
                   </p>
                 </div>
               </div>

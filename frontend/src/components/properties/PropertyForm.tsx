@@ -12,7 +12,7 @@ import { LocationPicker } from './LocationPicker';
 import { PropertyService } from '@/services/property.service';
 import type { Property } from '@/types/property.types';
 import { useNavigate } from 'react-router-dom';
-import { formatUsd } from '@/lib/utils';
+import { formatMad } from '@/lib/utils';
 
 interface PropertyFormProps {
   initialData?: Partial<Property>;
@@ -447,7 +447,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
         return (
           <div className="space-y-4">
             <div>
-              <Label htmlFor="pricePerNight">Price per Night (USD)</Label>
+              <Label htmlFor="pricePerNight">Price per Night (MAD)</Label>
               <Input
                 id="pricePerNight"
                 type="number"
@@ -457,7 +457,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
                 required
               />
               <p className="text-xs text-muted-foreground mt-1">
-                {formatUsd(formData.pricePerNight)}
+                {formatMad(formData.pricePerNight)}
               </p>
             </div>
             <div>

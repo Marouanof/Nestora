@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight, AlertCircle, MapPin, Users, DoorOpen, Bath } from 'lucide-react';
 import AiBadge from './AiBadge';
+import { formatMad } from '@/lib/utils';
 import type { PropertyRecommendation } from '@/services/aiService';
 
 interface RecommendedPropertiesProps {
@@ -146,7 +147,7 @@ export const RecommendedProperties = ({
                       {/* Price */}
                       <div className="flex items-baseline justify-between py-2 border-y">
                         <span className="text-lg font-bold text-primary">
-                          ${property.pricePerNight?.toFixed(2) || '0.00'}
+                          {formatMad(property.pricePerNight ?? 0)}
                         </span>
                         <span className="text-xs text-muted-foreground">/night</span>
                       </div>

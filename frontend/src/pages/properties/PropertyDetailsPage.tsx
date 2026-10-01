@@ -36,7 +36,7 @@ import {
   House as HomeIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatUsd } from '@/lib/utils';
+import { formatMad } from '@/lib/utils';
 import { authStore } from '@/store/auth.store';
 import { AiBadge } from '@/components/ai/AiBadge';
 import type { PaginatedResponse, Review } from '@/types/property.types';
@@ -206,7 +206,7 @@ export const PropertyDetailsPage: React.FC = () => {
               <div className="mt-6 flex flex-wrap items-end gap-x-8 gap-y-3">
                 <div>
                   <span className="font-display text-3xl font-semibold text-foreground">
-                    {formatUsd(property.pricePerNight)}
+                    {formatMad(property.pricePerNight)}
                   </span>
                   <span className="ml-1.5 text-muted-foreground">per night</span>
                 </div>
@@ -214,7 +214,7 @@ export const PropertyDetailsPage: React.FC = () => {
                   <div className="flex items-center gap-2 rounded-full border border-warning/30 bg-warning/10 px-3.5 py-1.5">
                     <AiBadge size="sm" />
                     <span className="text-sm font-semibold text-warning">
-                      AI suggests {formatUsd(property.suggestedPricePerNight)}/night
+                      AI suggests {formatMad(property.suggestedPricePerNight)}/night
                     </span>
                   </div>
                 )}
@@ -326,7 +326,7 @@ export const PropertyDetailsPage: React.FC = () => {
                   <ul className="space-y-2.5 text-muted-foreground">
                     <li className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 shrink-0 text-success" />
-                      Security deposit: {formatUsd(property.securityDeposit || 0)}
+                      Security deposit: {formatMad(property.securityDeposit || 0)}
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 shrink-0 text-success" />

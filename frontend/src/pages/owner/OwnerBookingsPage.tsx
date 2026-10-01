@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, MapPin, Users, DollarSign, User } from 'lucide-react';
+import { Calendar, MapPin, Users, Banknote, User } from 'lucide-react';
 import { useOwnerBookings } from '@/hooks/bookings/useOwnerBookings';
 import { formatMad } from '@/lib/utils';
 
@@ -134,7 +134,7 @@ export const OwnerBookingsPage = () => {
                         <span className="text-sm">{booking.numberOfGuests} guests</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-gray-500" />
+                        <Banknote className="h-4 w-4 text-gray-500" />
                         <span className="text-sm">{formatMad(booking.totalPrice)}</span>
                       </div>
                       {booking.property?.address && (

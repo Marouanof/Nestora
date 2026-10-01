@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import { formatUsd } from '@/lib/utils';
+import { formatMad } from '@/lib/utils';
 import type { OwnerProfileProperty } from '@/types/property.types';
 
 interface OwnerPropertyCardProps {
@@ -26,7 +26,7 @@ export const OwnerPropertyCard: React.FC<OwnerPropertyCardProps> = ({ property }
 
       <CardContent>
         <div className="mb-4">
-          <span className="text-xl font-bold">{formatUsd(property.pricePerNight)}/night</span>
+          <span className="text-xl font-bold">{formatMad(property.pricePerNight)}/night</span>
         </div>
 
         {property.description && (

@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TrendingUp, DollarSign, Calendar, XCircle, BarChart3, Lightbulb } from 'lucide-react';
+import { TrendingUp, Banknote, Calendar, XCircle, BarChart3, Lightbulb } from 'lucide-react';
 import { useOwnerStats } from '@/hooks/bookings/useOwnerStats';
 import { formatMad } from '@/lib/utils';
 
@@ -57,7 +57,7 @@ export const OwnerStatsPage = () => {
       value: stats.totalBookings.toString(),
     },
     {
-      icon: <DollarSign className="h-5 w-5 text-success" />,
+      icon: <Banknote className="h-5 w-5 text-success" />,
       label: 'Revenue',
       value: formatMad(revenue),
     },

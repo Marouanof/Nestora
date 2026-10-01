@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { PROPERTY_TYPES, COUNTRIES_AND_CITIES, COUNTRIES_LIST } from '@/types/location.constants';
-import { formatUsd } from '@/lib/utils';
+import { formatMad } from '@/lib/utils';
 import type { PropertySearchParams } from '@/types/property.types';
 
 interface PropertyFiltersProps {
@@ -195,7 +195,7 @@ export const PropertyFilters: React.FC<PropertyFiltersProps> = ({ onSearch, onRe
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="minPrice" className="text-sm">
-                        Min Price (USD)
+                        Min Price (MAD)
                       </Label>
                       <div className="flex flex-col gap-1">
                         <Input
@@ -203,20 +203,20 @@ export const PropertyFilters: React.FC<PropertyFiltersProps> = ({ onSearch, onRe
                           type="number"
                           min="0"
                           step="0.01"
-                          placeholder="Min USD"
+                          placeholder="Min MAD"
                           value={filters.minPrice || ''}
                           onChange={handleMinPriceChange}
                         />
                         {filters.minPrice && (
                           <span className="text-xs text-muted-foreground">
-                            {formatUsd(filters.minPrice)}
+                            {formatMad(filters.minPrice)}
                           </span>
                         )}
                       </div>
                     </div>
                     <div>
                       <Label htmlFor="maxPrice" className="text-sm">
-                        Max Price (USD)
+                        Max Price (MAD)
                       </Label>
                       <div className="flex flex-col gap-1">
                         <Input
@@ -224,13 +224,13 @@ export const PropertyFilters: React.FC<PropertyFiltersProps> = ({ onSearch, onRe
                           type="number"
                           min="0"
                           step="0.01"
-                          placeholder="Max USD"
+                          placeholder="Max MAD"
                           value={filters.maxPrice || ''}
                           onChange={handleMaxPriceChange}
                         />
                         {filters.maxPrice && (
                           <span className="text-xs text-muted-foreground">
-                            {formatUsd(filters.maxPrice)}
+                            {formatMad(filters.maxPrice)}
                           </span>
                         )}
                       </div>

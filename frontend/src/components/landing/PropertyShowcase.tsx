@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Star, BedDouble, Users } from 'lucide-react';
 import Reveal from './Reveal';
-import { formatUsd } from '@/lib/utils';
+import { formatMad } from '@/lib/utils';
 import type { PropertySummary } from '@/types/property.types';
 
 const FALLBACK_IMAGES = [
@@ -156,7 +156,7 @@ export default function PropertyShowcase({ properties, loading }: PropertyShowca
               <div className="mt-4 flex items-end justify-between gap-4 border-t border-white/15 pt-4">
                 <p className="text-[#F6F2EC]">
                   <span className="font-display text-2xl font-light text-champagne">
-                    {formatUsd(price)}
+                    {formatMad(price)}
                   </span>
                   <span className="ml-2 text-sm text-[#B5ABC9]">
                     / night

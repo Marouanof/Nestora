@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Calendar, MapPin, Users, DollarSign, ArrowLeft, CreditCard } from 'lucide-react';
+import { Calendar, MapPin, Users, Banknote, ArrowLeft, CreditCard } from 'lucide-react';
 import { useBooking } from '@/hooks/bookings/useBooking';
 import { useCancelBooking } from '@/hooks/bookings/useCancelBooking';
 import { useInitPayment } from '@/hooks/bookings/useInitPayment';
@@ -121,7 +121,7 @@ export const BookingDetailsPage = () => {
               </div>
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-gray-500" />
+                  <Banknote className="h-5 w-5 text-gray-500" />
                   <div>
                     <p className="font-medium">Total Price</p>
                     <p className="text-lg font-semibold">{formatMad(booking.totalPrice)}</p>

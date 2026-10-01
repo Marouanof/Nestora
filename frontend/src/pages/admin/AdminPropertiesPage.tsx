@@ -54,6 +54,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { formatMad } from '@/lib/utils';
 import type { AdminProperty } from '@/types/property.types';
 
 // Simple date formatting utility
@@ -471,10 +472,10 @@ export const AdminPropertiesPage: React.FC = () => {
 
                       <TableCell>
                         <div>
-                          <div className="font-medium">${property.pricePerNight.toFixed(2)}</div>
+                          <div className="font-medium">{formatMad(property.pricePerNight)}</div>
                           {property.securityDeposit > 0 && (
                             <div className="text-xs text-muted-foreground">
-                              Deposit: ${property.securityDeposit.toFixed(2)}
+                              Deposit: {formatMad(property.securityDeposit)}
                             </div>
                           )}
                         </div>

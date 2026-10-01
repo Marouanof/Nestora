@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MapPin, Star, Users, Bed, Bath, DollarSign, Eye } from 'lucide-react';
+import { MapPin, Star, Users, Bed, Bath, Banknote, Eye } from 'lucide-react';
 import { PropertyService } from '@/services/property.service';
 import type { PropertySummary } from '@/types/property.types';
-import { formatUsd } from '@/lib/utils';
+import { formatMad } from '@/lib/utils';
 import 'leaflet/dist/leaflet.css';
 
 // Fix for default markers in react-leaflet
@@ -260,8 +260,8 @@ export const MapPage: React.FC = () => {
 
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-1">
-                              <DollarSign className="w-4 h-4" />
-                              <span className="font-bold">{formatUsd(property.pricePerNight)}</span>
+                              <Banknote className="w-4 h-4" />
+                              <span className="font-bold">{formatMad(property.pricePerNight)}</span>
                               <span className="text-sm text-muted-foreground">/night</span>
                             </div>
                             <Badge variant="secondary" className="text-xs">
@@ -333,8 +333,8 @@ export const MapPage: React.FC = () => {
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
-                      <DollarSign className="w-4 h-4" />
-                      <span className="font-bold text-lg">{formatUsd(selectedProperty.pricePerNight)}</span>
+                      <Banknote className="w-4 h-4" />
+                      <span className="font-bold text-lg">{formatMad(selectedProperty.pricePerNight)}</span>
                       <span className="text-sm text-muted-foreground">/night</span>
                     </div>
                     <Badge className={getPropertyTypeColor(selectedProperty.type)}>

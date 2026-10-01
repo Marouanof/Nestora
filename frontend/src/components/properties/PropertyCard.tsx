@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Heart, Star, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { formatUsd } from '@/lib/utils';
+import { formatMad } from '@/lib/utils';
 import { AiBadge } from '@/components/ai/AiBadge';
 import type { PropertySummary } from '@/types/property.types';
 
@@ -98,7 +98,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             {property.title}
           </h3>
           {property.suggestedPricePerNight && property.suggestedPricePerNight !== property.pricePerNight && (
-            <span title={`AI suggested: ${formatUsd(property.suggestedPricePerNight)}/night`}>
+            <span title={`AI suggested: ${formatMad(property.suggestedPricePerNight)}/night`}>
               <AiBadge size="sm" />
             </span>
           )}
@@ -131,7 +131,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
         <div className="mt-3 pt-1">
           <span className="font-display text-lg font-semibold text-foreground">
-            {formatUsd(property.pricePerNight)}
+            {formatMad(property.pricePerNight)}
           </span>
           <span className="ml-1 text-sm text-muted-foreground">/ night</span>
         </div>

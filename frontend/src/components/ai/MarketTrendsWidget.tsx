@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { AlertCircle, TrendingUp } from 'lucide-react';
 import AiBadge from './AiBadge';
-import { formatUsd } from '@/lib/utils';
+import { formatMad } from '@/lib/utils';
 import type { CityAnalytics } from '@/services/aiService';
 
 interface MarketTrendsWidgetProps {
@@ -201,7 +201,7 @@ export const MarketTrendsWidget = ({
                 <YAxis
                   tick={{ fontSize: 12 }}
                   label={{
-                    value: 'Price (USD)',
+                    value: 'Price (MAD)',
                     angle: -90,
                     position: 'insideLeft',
                   }}
@@ -209,7 +209,7 @@ export const MarketTrendsWidget = ({
                 <Tooltip
                   formatter={(value) => {
                     if (typeof value === 'number') {
-                      return `${formatUsd(value)}`;
+                      return `${formatMad(value)}`;
                     }
                     return value;
                   }}

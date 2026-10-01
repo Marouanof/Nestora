@@ -9,7 +9,7 @@ import { useCreateBooking } from '@/hooks/bookings/useCreateBooking';
 import { BookingCalendar } from './BookingCalendar';
 import { authStore } from '@/store/auth.store';
 import { toast } from 'sonner';
-import { formatUsd } from '@/lib/utils';
+import { formatMad } from '@/lib/utils';
 import type { Property } from '@/types/property.types';
 
 interface BookingFormProps {
@@ -126,7 +126,7 @@ export const BookingForm = ({ property, averageRating, reviewCount, unavailableD
           <div className="mb-6 flex items-center justify-between">
             <div>
               <span className="font-display text-3xl font-semibold text-foreground">
-                {formatUsd(property.pricePerNight)}
+                {formatMad(property.pricePerNight)}
               </span>
               <span className="ml-1 text-muted-foreground">night</span>
             </div>
@@ -167,28 +167,28 @@ export const BookingForm = ({ property, averageRating, reviewCount, unavailableD
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground underline decoration-border underline-offset-4">
-                    {formatUsd(property.pricePerNight)} × {nights} night{nights > 1 ? 's' : ''}
+                    {formatMad(property.pricePerNight)} × {nights} night{nights > 1 ? 's' : ''}
                   </span>
-                  <span>{formatUsd(subtotal)}</span>
+                  <span>{formatMad(subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground underline decoration-border underline-offset-4">
                     Service fee
                   </span>
-                  <span>{formatUsd(serviceFee)}</span>
+                  <span>{formatMad(serviceFee)}</span>
                 </div>
                 {securityDeposit > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground underline decoration-border underline-offset-4">
                       Security deposit
                     </span>
-                    <span>{formatUsd(securityDeposit)}</span>
+                    <span>{formatMad(securityDeposit)}</span>
                   </div>
                 )}
                 <Separator />
                 <div className="flex justify-between text-base font-semibold text-foreground">
                   <span>Total</span>
-                  <span>{formatUsd(total)}</span>
+                  <span>{formatMad(total)}</span>
                 </div>
               </div>
             </>

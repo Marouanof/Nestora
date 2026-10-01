@@ -43,6 +43,7 @@ import {
   Filter
 } from 'lucide-react';
 import { useAdminBookingsList, useAdminBookingStats, useAdminCancelBooking } from '@/hooks/admin/useAdminBookings';
+import { formatMad } from '@/lib/utils';
 import type { Booking } from '@/types/booking.types';
 
 // Simple date formatting utility
@@ -292,7 +293,7 @@ export const AdminBookingsPage = () => {
                       </TableCell>
                       <TableCell>{booking.numberOfGuests}</TableCell>
                       <TableCell>
-                        <div className="font-medium">${booking.totalPrice.toFixed(2)}</div>
+                        <div className="font-medium">{formatMad(booking.totalPrice)}</div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(booking.status)}>
