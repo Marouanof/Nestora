@@ -1,0 +1,51 @@
+# Database
+spring:
+  profiles:
+    default: local
+  application:
+    name: payment-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:payment_db}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASS:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:update}
+    show-sql: ${SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:guest}
+    password: ${RABBIT_PASS:guest}
+    connection-timeout: 5000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, metrics, info
+
+server:
+  port: ${SERVER_PORT:8084}
+
+logging:
+  level:
+    com.example.paymentservice: DEBUG
+
+app:
+  gateway:
+    shared-secret: ${GATEWAY_SHARED_SECRET:change-me}
+  services:
+    booking-service-url: ${BOOKING_SERVICE_URL:http://localhost:8083}
+  stripe:
+    stub: ${STRIPE_STUB:false}
+    secret-key: ${STRIPE_SECRET_KEY:}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+    success-url: ${STRIPE_SUCCESS_URL:http://localhost:5173/bookings/success?session_id={CHECKOUT_SESSION_ID}}
+    cancel-url: ${STRIPE_CANCEL_URL:http://localhost:5173/bookings/cancel}
+    currency: ${STRIPE_CURRENCY:mad}
