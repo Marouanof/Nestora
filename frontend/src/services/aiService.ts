@@ -39,7 +39,6 @@ export interface PropertyRecommendation {
   ownerFirstName: string;
   ownerLastName: string;
   ownerProfilePicture?: string;
-  ownerWalletAddress: string;
   status: string;
   minStayNights: number;
   cancellationPolicyDays: number;

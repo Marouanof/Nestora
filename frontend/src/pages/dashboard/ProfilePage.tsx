@@ -1,34 +1,54 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authStore } from "@/store/auth.store";
-import { AssociateWalletCard } from "@/components/profile/AssociateWalletCard";
 import { ProfilePictureUpload } from "@/components/profile/ProfilePictureUpload";
 import { KYCDocumentUpload } from "@/components/profile/KYCDocumentUpload";
 import { ProfileUpdateForm } from "@/components/profile/ProfileUpdateForm";
 import { ChangePasswordForm } from "@/components/profile/ChangePasswordForm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
-import { Shield, User, FileText, Wallet } from 'lucide-react';
+import { Shield, User, FileText, Home } from 'lucide-react';
 import { RiskBadge } from "@/components/ai/RiskBadge";
 import { useRiskScore } from "@/hooks/ai";
 import { useUserRole } from "@/hooks/useUserRole";
+import { OwnerOnboardingService } from "@/services/preferences.api";
 
 const Profile = () => {
-  const { user, walletAddress, walletVerified, loadUser } = authStore();
+  const { user, loadUser } = authStore();
   const { isTenant } = useUserRole();
+  const navigate = useNavigate();
+  const [becomingOwner, setBecomingOwner] = useState(false);
+  const [ownerError, setOwnerError] = useState<string | null>(null);
 
-  // AI hooks - only enable for tenants
   const { data: riskScore, isLoading: riskLoading, isError: riskError } = useRiskScore(isTenant && !!user);
 
   useEffect(() => {
     loadUser();
   }, [loadUser]);
 
-  const handleUpdate = () => {
-    // Force re-render if needed
+  const handleBecomeOwner = async () => {
+    setBecomingOwner(true);
+    setOwnerError(null);
+    try {
+      await OwnerOnboardingService.becomeOwner();
+      await loadUser();
+      // Force le rôle côté store : l'user a désormais plusieurs rôles
+      if (authStore.getState().user) {
+        authStore.setState({ user: { ...authStore.getState().user!, role: 'ROLE_OWNER' } });
+      }
+      navigate('/owner/onboarding');
+    } catch {
+      setOwnerError('Failed to switch to host mode. Please try again.');
+    } finally {
+      setBecomingOwner(false);
+    }
   };
+
+  const handleUpdate = () => {};
 
   if (!user) {
     return (
@@ -61,8 +81,35 @@ const Profile = () => {
         </div>
       </div>
 
+      {/* Become a host (tenants uniquement) */}
+      {isTenant && (
+        <Card className="mb-6 border-primary/20 bg-primary/[0.04]">
+          <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
+                <Home className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium">Become a host</p>
+                <p className="text-sm text-muted-foreground">
+                  List your property and start earning.
+                  {ownerError && <span className="ml-2 text-red-400">{ownerError}</span>}
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={handleBecomeOwner}
+              disabled={becomingOwner}
+              className="shrink-0"
+            >
+              {becomingOwner ? 'Switching…' : 'Switch to hosting'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="personal" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="personal" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Personal
@@ -70,10 +117,6 @@ const Profile = () => {
           <TabsTrigger value="documents" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Documents
-          </TabsTrigger>
-          <TabsTrigger value="wallet" className="flex items-center gap-2">
-            <Wallet className="h-4 w-4" />
-            Wallet
           </TabsTrigger>
           <TabsTrigger value="security" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
@@ -124,52 +167,31 @@ const Profile = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4">
-                <Badge variant={user.enabled ? "default" : "secondary"}>
-                  {user.enabled ? "Verified" : "Pending Verification"}
-                </Badge>
-                {!user.enabled && (
+                {user.kycStatus === 'VERIFIED' ? (
+                  <Badge variant="default">Verified</Badge>
+                ) : user.kycStatus === 'REJECTED' ? (
+                  <Badge variant="destructive">Rejected</Badge>
+                ) : user.kycStatus === 'PENDING' || user.kycStatus === 'IN_REVIEW' ? (
+                  <Badge variant="secondary">Under Review</Badge>
+                ) : (
+                  <Badge variant="secondary">Not Started</Badge>
+                )}
+                {user.kycStatus === 'REJECTED' && user.kycRejectionReason && (
+                  <p className="text-sm text-red-400">Reason: {user.kycRejectionReason}</p>
+                )}
+                {(user.kycStatus === 'PENDING' || user.kycStatus === 'IN_REVIEW') && (
                   <p className="text-sm text-muted-foreground">
-                    Your account will be activated once documents are verified
+                    Your documents are being reviewed
+                  </p>
+                )}
+                {!user.kycStatus && (
+                  <p className="text-sm text-muted-foreground">
+                    Upload your documents above to start verification
                   </p>
                 )}
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="wallet" className="space-y-6">
-          <div className="max-w-2xl">
-            {walletVerified && walletAddress ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Wallet className="h-5 w-5" />
-                    Wallet Connected
-                  </CardTitle>
-                  <CardDescription>
-                    Your MetaMask wallet is securely linked to your account
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label className="text-sm font-medium">Wallet Address</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <code className="bg-muted px-2 py-1 rounded text-sm font-mono">
-                        {walletAddress}
-                      </code>
-                      <Badge variant="default">Verified</Badge>
-                    </div>
-                  </div>
-                  <Separator />
-                  <p className="text-sm text-muted-foreground">
-                    Your wallet is used for secure authentication and blockchain interactions.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <AssociateWalletCard />
-            )}
-          </div>
         </TabsContent>
 
         <TabsContent value="security" className="space-y-6">

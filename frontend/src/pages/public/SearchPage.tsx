@@ -19,7 +19,8 @@ export const SearchPage: React.FC = () => {
     guests: searchParams.get('guests') ? parseInt(searchParams.get('guests')!) : undefined,
     minPrice: searchParams.get('minPrice') ? parseInt(searchParams.get('minPrice')!) : undefined,
     maxPrice: searchParams.get('maxPrice') ? parseInt(searchParams.get('maxPrice')!) : undefined,
-    propertyType: searchParams.get('propertyType') || undefined,
+    // `propertyTypes` (pluriel, onboarding) prioritaire, repli sur `propertyType`
+    propertyType: searchParams.get('propertyTypes')?.split(',')[0] || searchParams.get('propertyType') || undefined,
     amenities: searchParams.get('amenities') ? searchParams.get('amenities')!.split(',') : undefined,
     instantBookable: searchParams.get('instantBookable') === 'true' ? true : undefined,
   });
@@ -170,6 +171,7 @@ export const SearchPage: React.FC = () => {
                   <SelectItem value="APARTMENT">Apartment</SelectItem>
                   <SelectItem value="LOFT">Loft</SelectItem>
                   <SelectItem value="STUDIO">Studio</SelectItem>
+                  <SelectItem value="ROOM">Room</SelectItem>
                   <SelectItem value="CASTLE">Castle</SelectItem>
                 </SelectContent>
               </Select>

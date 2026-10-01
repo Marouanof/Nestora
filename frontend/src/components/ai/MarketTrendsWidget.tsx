@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { AlertCircle, TrendingUp } from 'lucide-react';
 import AiBadge from './AiBadge';
+import { formatUsd } from '@/lib/utils';
 import type { CityAnalytics } from '@/services/aiService';
 
 interface MarketTrendsWidgetProps {
@@ -63,7 +64,7 @@ export const MarketTrendsWidget = ({
 
     // Create data points for each date with prices from selected cities
     return sortedDates.map((date) => {
-      const dataPoint: Record<string, any> = { date };
+      const dataPoint: Record<string, string | number> = { date };
 
       analytics.forEach((city) => {
         if (selectedCities.has(city.city)) {
@@ -200,15 +201,15 @@ export const MarketTrendsWidget = ({
                 <YAxis
                   tick={{ fontSize: 12 }}
                   label={{
-                    value: 'Price (ETH)',
+                    value: 'Price (USD)',
                     angle: -90,
                     position: 'insideLeft',
                   }}
                 />
                 <Tooltip
-                  formatter={(value: any) => {
+                  formatter={(value) => {
                     if (typeof value === 'number') {
-                      return `$${value.toFixed(9)}`;
+                      return `${formatUsd(value)}`;
                     }
                     return value;
                   }}

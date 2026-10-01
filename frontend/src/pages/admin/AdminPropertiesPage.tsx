@@ -433,9 +433,6 @@ export const AdminPropertiesPage: React.FC = () => {
                             <div className="font-medium text-sm">
                               {property.ownerFirstName} {property.ownerLastName}
                             </div>
-                            <div className="text-xs text-muted-foreground font-mono">
-                              {property.ownerWalletAddress.slice(0, 6)}...{property.ownerWalletAddress.slice(-4)}
-                            </div>
                           </div>
                         </div>
                       </TableCell>

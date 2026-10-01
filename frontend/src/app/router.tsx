@@ -7,6 +7,9 @@ import {
   LoginPage,
   RegisterPage,
   EmailVerificationPage,
+  OnboardingPage,
+  OnboardingOwnerPage,
+  IdentityVerificationPage,
   ProfilePage,
   FAQPage,
   BlogPage,
@@ -25,6 +28,8 @@ import {
   OwnerListingsPage,
   MyBookingsPage,
   BookingDetailsPage,
+  BookingSuccessPage,
+  BookingCancelPage,
   OwnerStatsPage,
   AdminDashboardPage,
   AdminPropertiesPage,
@@ -46,6 +51,30 @@ export const router = createBrowserRouter([
       { path: "login", element: <LoginPage /> },
       { path: "register", element: <RegisterPage /> },
       { path: "verify-email", element: <EmailVerificationPage /> },
+      {
+        path: "onboarding",
+        element: (
+          <RequireRole roles={["ROLE_TENANT"]}>
+            <OnboardingPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: "owner/onboarding",
+        element: (
+          <RequireRole roles={["ROLE_OWNER"]}>
+            <OnboardingOwnerPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: "owner/verification",
+        element: (
+          <RequireRole roles={["ROLE_OWNER"]}>
+            <IdentityVerificationPage />
+          </RequireRole>
+        ),
+      },
       { path: "properties", element: <PropertyListPage /> },
       { path: "properties/:id", element: <PropertyDetailsPage /> },
       { path: "faq", element: <FAQPage /> },
@@ -160,7 +189,7 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "admin/users/new",
+        path: "admin/users/create",
         element: (
           <RequireRole roles={["ROLE_ADMIN"]}>
             <AdminCreateUser />
@@ -210,6 +239,22 @@ export const router = createBrowserRouter([
         element: (
           <RequireRole roles={["ROLE_TENANT"]}>
             <MyBookingsPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: "bookings/success",
+        element: (
+          <RequireRole roles={["ROLE_TENANT"]}>
+            <BookingSuccessPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: "bookings/cancel",
+        element: (
+          <RequireRole roles={["ROLE_TENANT"]}>
+            <BookingCancelPage />
           </RequireRole>
         ),
       },

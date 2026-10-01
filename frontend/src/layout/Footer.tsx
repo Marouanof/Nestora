@@ -25,12 +25,9 @@ import Logo from "@/assets/logo.svg?react";
 
 function Footer() {
   return (
-    <footer className="bg-gradient-to-br from-muted/30 via-background to-muted/20 border-t flex  justify-center align-center">
-      <div >
-
-      
+    <footer className="border-t bg-gradient-to-br from-muted/30 via-background to-muted/20">
       {/* Main Footer Content */}
-      <div className="container px-4 py-12">
+      <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
           {/* Brand Section */}
           <div className="lg:col-span-1">
@@ -43,11 +40,11 @@ function Footer() {
                 <h3 className="text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                   Nestora
                 </h3>
-                <p className="text-xs text-muted-foreground">Blockchain Rentals</p>
+                <p className="text-xs text-muted-foreground">Smart Rentals</p>
               </div>
             </div>
             <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-              The future of rental property management. Secure, transparent, and decentralized real estate rentals powered by blockchain technology.
+              The future of rental property management. Secure, transparent, and efficient real estate rentals.
             </p>
             <div className="flex space-x-3">
               <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10">
@@ -145,12 +142,12 @@ function Footer() {
         </div>
 
         {/* Newsletter Section */}
-        <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-6 mb-8 border">
+        <div className="rounded-2xl border border-primary/15 bg-gradient-to-r from-primary/[0.06] via-transparent to-secondary/[0.08] p-6 mb-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex-1">
               <h4 className="text-lg font-semibold mb-2">Stay Updated</h4>
               <p className="text-sm text-muted-foreground">
-                Get the latest news about blockchain rentals and platform updates.
+                Get the latest news about Nestora and platform updates.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
@@ -183,7 +180,7 @@ function Footer() {
             </div>
             <div>
               <p className="text-sm font-medium">Security</p>
-              <p className="text-xs text-muted-foreground">Blockchain Protected</p>
+              <p className="text-xs text-muted-foreground">Secure & Verified</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -200,7 +197,7 @@ function Footer() {
 
       {/* Bottom Section */}
       <div className="border-t bg-muted/30">
-        <div className=" px-4 py-6">
+        <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex flex-col md:flex-row items-center gap-4 text-xs text-muted-foreground">
               <p>© 2025 Nestora. All rights reserved.</p>
@@ -224,7 +221,6 @@ function Footer() {
             </div>
           </div>
         </div>
-      </div>
       </div>
     </footer>
   );

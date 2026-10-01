@@ -31,6 +31,38 @@ export const roleHelpers = {
 };
 
 /**
+ * Human-readable label for a role.
+ * Falls back to 'Tenant' (never 'Admin') so an unknown/missing role
+ * cannot grant elevated access in the UI.
+ */
+export const roleLabel = (role?: User['role'] | null): string => {
+  switch (role) {
+    case 'ROLE_OWNER':
+      return 'Owner';
+    case 'ROLE_ADMIN':
+      return 'Admin';
+    case 'ROLE_TENANT':
+      return 'Tenant';
+    default:
+      return 'Tenant';
+  }
+};
+
+/**
+ * Tailwind classes for the role badge, keyed off the role value only.
+ */
+export const roleBadgeClass = (role?: User['role'] | null): string => {
+  switch (role) {
+    case 'ROLE_OWNER':
+      return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300';
+    case 'ROLE_ADMIN':
+      return 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300';
+    default:
+      return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300';
+  }
+};
+
+/**
  * Menu item configuration based on role
  */
 export interface MenuItem {

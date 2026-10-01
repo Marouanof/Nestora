@@ -1,18 +1,15 @@
-// src/components/bookings/BookingForm.tsx
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Star, Lock } from 'lucide-react';
+import { Star, Lock, ShieldCheck, ArrowRight } from 'lucide-react';
 import { useCreateBooking } from '@/hooks/bookings/useCreateBooking';
 import { BookingCalendar } from './BookingCalendar';
-import { PaymentComponent } from './PaymentComponent';
 import { authStore } from '@/store/auth.store';
 import { toast } from 'sonner';
-import { ethToUsd } from '@/lib/utils';
+import { formatUsd } from '@/lib/utils';
 import type { Property } from '@/types/property.types';
 
 interface BookingFormProps {
@@ -26,8 +23,6 @@ export const BookingForm = ({ property, averageRating, reviewCount, unavailableD
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [guests, setGuests] = useState(1);
-  const [bookingCreated, setBookingCreated] = useState(false);
-  const [createdBookingId, setCreatedBookingId] = useState<number | null>(null);
   const { createBooking, loading } = useCreateBooking();
   const navigate = useNavigate();
   const { user } = authStore();
@@ -64,8 +59,7 @@ export const BookingForm = ({ property, averageRating, reviewCount, unavailableD
     const result = await createBooking(bookingData);
     if (result) {
       toast.success('Booking created successfully!');
-      setCreatedBookingId(result.id); // Assuming result has id
-      setBookingCreated(true);
+      navigate('/bookings');
     }
   };
 
@@ -77,36 +71,32 @@ export const BookingForm = ({ property, averageRating, reviewCount, unavailableD
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const calculateTotal = () => {
-    const nights = calculateNights();
-    const usdPrice = ethToUsd(property.pricePerNight);
-    const subtotal = nights * usdPrice;
-    const serviceFee = Math.round(subtotal * 0.14); // 14% service fee
-    const securityDeposit = property.securityDeposit || 0;
-    return subtotal + serviceFee + securityDeposit;
-  };
-
-  const handlePaymentSuccess = () => {
-    toast.success('Payment completed! Your booking is confirmed.');
-    navigate('/bookings');
-  };
-
-  const ethRate = 2000; // 1 ETH = 2000 USD
-  const total = calculateTotal();
-  const amountInEth = total / ethRate;
+  // Single source of truth for the price breakdown
   const nights = calculateNights();
+  const subtotal = nights * property.pricePerNight;
+  const serviceFee = Math.round(subtotal * 0.14);
+  const securityDeposit = property.securityDeposit || 0;
+  const total = subtotal + serviceFee + securityDeposit;
+
+  const cardClass =
+    'rounded-3xl border border-border/60 bg-card shadow-[0_24px_56px_-40px_rgba(13,11,38,0.35)]';
 
   // Don't show anything if not a tenant
   if (!isTenant) {
     if (!isAuthenticated) {
       return (
-        <Card className="sticky top-8 shadow-lg border-0 bg-card">
-          <CardContent className="p-6 text-center">
-            <Lock className="w-8 h-8 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">Sign in to book</h3>
-            <p className="text-sm text-muted-foreground mb-4">You need to be logged in as a tenant to book this property.</p>
-            <Button onClick={() => navigate('/login')} className="w-full">
+        <Card className={`sticky top-8 ${cardClass}`}>
+          <CardContent className="p-7 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <Lock className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <h3 className="section-heading mb-1.5 text-xl text-foreground">Sign in to book</h3>
+            <p className="mb-6 text-sm text-muted-foreground">
+              You need to be logged in as a tenant to book this property.
+            </p>
+            <Button onClick={() => navigate('/login')} size="lg" className="w-full rounded-full">
               Sign In
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </CardContent>
         </Card>
@@ -114,10 +104,12 @@ export const BookingForm = ({ property, averageRating, reviewCount, unavailableD
     }
 
     return (
-      <Card className="sticky top-8 shadow-lg border-0 bg-card">
-        <CardContent className="p-6 text-center">
-          <Lock className="w-8 h-8 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-semibold mb-2">Booking not available</h3>
+      <Card className={`sticky top-8 ${cardClass}`}>
+        <CardContent className="p-7 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <Lock className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <h3 className="section-heading mb-1.5 text-xl text-foreground">Booking not available</h3>
           <p className="text-sm text-muted-foreground">
             Only tenants can book properties. If you're an owner, switch to your tenant account to book.
           </p>
@@ -126,43 +118,36 @@ export const BookingForm = ({ property, averageRating, reviewCount, unavailableD
     );
   }
 
-  if (bookingCreated && createdBookingId && property.ownerWalletAddress) {
-    return (
-      <PaymentComponent
-        amount={amountInEth}
-        recipientAddress={property.ownerWalletAddress}
-        bookingId={createdBookingId}
-        onPaymentSuccess={handlePaymentSuccess}
-      />
-    );
-  }
-
   return (
-    <div className="sticky top-8 space-y-4">
+    <div className="sticky top-8 space-y-5">
       {/* Price Card */}
-      <Card className="shadow-lg border-0 bg-card">
+      <Card className={cardClass}>
         <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="mb-6 flex items-center justify-between">
             <div>
-              <span className="text-2xl font-bold">{property.pricePerNight.toFixed(4)} ETH</span>
-              <span className="text-muted-foreground ml-1">night</span>
-              <div className="text-sm text-muted-foreground">≈ ${ethToUsd(property.pricePerNight).toLocaleString()}</div>
+              <span className="font-display text-3xl font-semibold text-foreground">
+                {formatUsd(property.pricePerNight)}
+              </span>
+              <span className="ml-1 text-muted-foreground">night</span>
             </div>
-            {averageRating && reviewCount && (
-              <div className="flex items-center gap-1 text-sm">
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span>{averageRating.toFixed(1)} ({reviewCount})</span>
+            {averageRating != null && reviewCount != null && (
+              <div className="flex items-center gap-1 rounded-full border border-border/60 px-3 py-1 text-sm">
+                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                <span className="font-medium">{averageRating > 0 ? averageRating.toFixed(1) : 'New'}</span>
+                {reviewCount > 0 && (
+                  <span className="text-muted-foreground">({reviewCount})</span>
+                )}
               </div>
             )}
           </div>
 
           {/* Guests Selection */}
-          <div className="mb-4">
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+          <div className="mb-5">
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Guests
             </label>
             <Select value={guests.toString()} onValueChange={(value) => setGuests(parseInt(value))}>
-              <SelectTrigger>
+              <SelectTrigger className="h-11 rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -178,26 +163,32 @@ export const BookingForm = ({ property, averageRating, reviewCount, unavailableD
           {/* Summary */}
           {nights > 0 && (
             <>
-              <Separator className="my-4" />
+              <Separator className="my-5" />
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="underline">${ethToUsd(property.pricePerNight).toFixed(0)} × {nights} nights</span>
-                  <span>${(ethToUsd(property.pricePerNight) * nights).toFixed(0)}</span>
+                  <span className="text-muted-foreground underline decoration-border underline-offset-4">
+                    {formatUsd(property.pricePerNight)} × {nights} night{nights > 1 ? 's' : ''}
+                  </span>
+                  <span>{formatUsd(subtotal)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="underline">Service fee</span>
-                  <span>${Math.round(ethToUsd(property.pricePerNight) * nights * 0.14)}</span>
+                  <span className="text-muted-foreground underline decoration-border underline-offset-4">
+                    Service fee
+                  </span>
+                  <span>{formatUsd(serviceFee)}</span>
                 </div>
-                {property.securityDeposit && property.securityDeposit > 0 && (
+                {securityDeposit > 0 && (
                   <div className="flex justify-between">
-                    <span className="underline">Security deposit</span>
-                    <span>${property.securityDeposit}</span>
+                    <span className="text-muted-foreground underline decoration-border underline-offset-4">
+                      Security deposit
+                    </span>
+                    <span>{formatUsd(securityDeposit)}</span>
                   </div>
                 )}
                 <Separator />
-                <div className="flex justify-between font-semibold">
+                <div className="flex justify-between text-base font-semibold text-foreground">
                   <span>Total</span>
-                  <span>${total}</span>
+                  <span>{formatUsd(total)}</span>
                 </div>
               </div>
             </>
@@ -206,25 +197,29 @@ export const BookingForm = ({ property, averageRating, reviewCount, unavailableD
       </Card>
 
       {/* Calendar */}
-      {(
-        <BookingCalendar
-          unavailableDates={unavailableDates}
-          onDateRangeSelect={handleDateRangeSelect}
-          selectedCheckIn={checkIn}
-          selectedCheckOut={checkOut}
-          minNights={property.minStayNights}
-        />
-      )}
+      <BookingCalendar
+        unavailableDates={unavailableDates}
+        onDateRangeSelect={handleDateRangeSelect}
+        selectedCheckIn={checkIn}
+        selectedCheckOut={checkOut}
+        minNights={property.minStayNights}
+      />
 
       {/* Book Button */}
       <form onSubmit={handleSubmit}>
-        <Button type="submit" className="w-full mb-3" size="lg" disabled={loading || !checkIn || !checkOut}>
-          {loading ? 'Creating Booking...' : (property.instantBookable ? 'Reserve' : 'Request to book')}
+        <Button type="submit" size="lg" disabled={loading || !checkIn || !checkOut} className="h-12 w-full rounded-full text-base font-semibold transition-all duration-300 hover:-translate-y-px hover:shadow-[0_16px_32px_-16px_rgba(81,70,229,0.55)] disabled:hover:translate-y-0 disabled:hover:shadow-none">
+          {loading ? 'Creating booking…' : property.instantBookable ? 'Reserve' : 'Request to book'}
         </Button>
 
-        {!property.instantBookable && (
-          <p className="text-xs text-muted-foreground text-center">
+        {!property.instantBookable ? (
+          <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+            <Lock className="h-3 w-3" />
             You won't be charged yet
+          </p>
+        ) : (
+          <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+            <ShieldCheck className="h-3.5 w-3.5 text-success" />
+            Free cancellation up to {property.cancellationPolicyDays} days before check-in
           </p>
         )}
       </form>

@@ -5,18 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Calendar, MapPin, Users, DollarSign, ArrowLeft } from 'lucide-react';
+import { Calendar, MapPin, Users, DollarSign, ArrowLeft, CreditCard } from 'lucide-react';
 import { useBooking } from '@/hooks/bookings/useBooking';
 import { useCancelBooking } from '@/hooks/bookings/useCancelBooking';
+import { useInitPayment } from '@/hooks/bookings/useInitPayment';
 import { CancelBookingDialog } from '@/components/bookings/CancelBookingDialog';
 import { useState } from 'react';
-import { formatEth, ethToUsd, formatUsd } from '@/lib/utils';
+import { formatMad } from '@/lib/utils';
 
 export const BookingDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
   const bookingId = id ? parseInt(id) : null;
   const { booking, loading, error } = useBooking(bookingId);
   const { cancelBooking, loading: cancelLoading } = useCancelBooking();
+  const { initPayment, loading: payLoading, error: payError } = useInitPayment();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const handleCancel = async (reason: string) => {
@@ -27,11 +29,24 @@ export const BookingDetailsPage = () => {
     }
   };
 
+  const handlePay = () => {
+    if (!booking) return;
+    void initPayment(booking.id); // Redirects to checkoutUrl on success
+  };
+
+  const isPayable = booking?.status === 'PENDING_PAYMENT' || booking?.status === 'PAYMENT_PROCESSING';
+  const isCancellable = booking?.status === 'CONFIRMED' || isPayable;
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'CONFIRMED': return 'bg-green-100 text-green-800';
+      case 'CONFIRMED':
+      case 'COMPLETED':
+      case 'ACTIVE': return 'bg-green-100 text-green-800';
+      case 'PENDING_PAYMENT':
+      case 'PAYMENT_PROCESSING':
       case 'PENDING': return 'bg-yellow-100 text-yellow-800';
-      case 'CANCELLED': return 'bg-red-100 text-red-800';
+      case 'CANCELLED':
+      case 'DISPUTED': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -109,8 +124,7 @@ export const BookingDetailsPage = () => {
                   <DollarSign className="h-5 w-5 text-gray-500" />
                   <div>
                     <p className="font-medium">Total Price</p>
-                    <p className="text-lg font-semibold">{formatEth(booking.totalPrice)} ETH</p>
-                    <p className="text-sm text-gray-600">≈ {formatUsd(ethToUsd(booking.totalPrice))}</p>
+                    <p className="text-lg font-semibold">{formatMad(booking.totalPrice)}</p>
                   </div>
                 </div>
                 {booking.property?.address && (
@@ -145,7 +159,7 @@ export const BookingDetailsPage = () => {
             <div>
               <p className="font-medium">Last Updated</p>
               <p className="text-sm text-gray-600">
-                {new Date(booking.updatedAt).toLocaleDateString()}
+                {new Date(booking.updatedAt ?? booking.createdAt).toLocaleDateString()}
               </p>
             </div>
             {booking.cancellationReason && (
@@ -160,7 +174,28 @@ export const BookingDetailsPage = () => {
           </CardContent>
         </Card>
 
-        {booking.status === 'CONFIRMED' && (
+        {isPayable && (
+          <Card className="border-yellow-200 bg-yellow-50">
+            <CardContent className="p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium">Payment pending</p>
+                  <p className="text-sm text-gray-600">
+                    {formatMad(booking.totalPrice)} due to confirm this booking.
+                    {booking.securityDeposit ? ` Includes ${formatMad(booking.securityDeposit)} security deposit.` : ''}
+                  </p>
+                  {payError && <p className="mt-1 text-sm text-red-600">{payError}</p>}
+                </div>
+                <Button onClick={handlePay} disabled={payLoading}>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  {payLoading ? 'Redirecting…' : 'Pay now'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {isCancellable && (
           <Card>
             <CardContent className="p-6">
               <div className="flex justify-end">

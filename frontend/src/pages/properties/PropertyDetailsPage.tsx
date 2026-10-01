@@ -6,21 +6,70 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { PropertyImageGallery } from '@/components/properties/PropertyImageGallery';
 import { ReviewList } from '@/components/properties/ReviewList';
 import { ReviewForm } from '@/components/properties/ReviewForm';
 import { BookingForm } from '@/components/bookings/BookingForm';
-import { Calendar, Star, MapPin, Users, Bed, Bath, Wifi, Heart, Share, Shield, CheckCircle } from 'lucide-react';
-import { formatUsd, formatEth, ethToUsd } from '@/lib/utils';
+import {
+  Calendar,
+  Star,
+  MapPin,
+  Users,
+  BedDouble,
+  Bath,
+  Heart,
+  Share2,
+  Shield,
+  CheckCircle,
+  BadgeCheck,
+  Wifi as WifiIcon,
+  CookingPot as CookingPotIcon,
+  Car as CarIcon,
+  Waves as WavesIcon,
+  Tv as TvIcon,
+  Shirt as ShirtIcon,
+  Snowflake as SnowflakeIcon,
+  Dumbbell as DumbbellIcon,
+  Laptop as LaptopIcon,
+  PawPrint as PawPrintIcon,
+  House as HomeIcon,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { formatUsd } from '@/lib/utils';
 import { authStore } from '@/store/auth.store';
 import { AiBadge } from '@/components/ai/AiBadge';
+import type { PaginatedResponse, Review } from '@/types/property.types';
+
+const AMENITY_ICONS: { pattern: RegExp; icon: React.ReactNode }[] = [
+  { pattern: /wifi|internet/i, icon: <WifiIcon /> },
+  { pattern: /kitchen/i, icon: <CookingPotIcon /> },
+  { pattern: /park/i, icon: <CarIcon /> },
+  { pattern: /pool/i, icon: <WavesIcon /> },
+  { pattern: /tv|screen|netflix/i, icon: <TvIcon /> },
+  { pattern: /wash|laundry|machine/i, icon: <ShirtIcon /> },
+  { pattern: /air.?cond|ac\b|clim/i, icon: <SnowflakeIcon /> },
+  { pattern: /gym|fitness/i, icon: <DumbbellIcon /> },
+  { pattern: /work|desk|office/i, icon: <LaptopIcon /> },
+  { pattern: /pet/i, icon: <PawPrintIcon /> },
+];
+
+function AmenityIcon({ amenity }: { amenity: string }) {
+  const match = AMENITY_ICONS.find(({ pattern }) => pattern.test(amenity));
+  return (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+      {match?.icon ?? <HomeIcon />}
+    </span>
+  );
+}
 
 export const PropertyDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const propertyId = id ? parseInt(id) : null;
   const { property, loading, error, refetch } = usePropertyDetails(propertyId);
   const [unavailableDates, setUnavailableDates] = useState<string[]>([]);
-  const [reviews, setReviews] = useState<any>(null);
+  const [reviews, setReviews] = useState<PaginatedResponse<Review> | null>(null);
+  const [liked, setLiked] = useState(false);
   const { user } = authStore();
   const isTenant = user?.role === 'ROLE_TENANT';
   const navigate = useNavigate();
@@ -43,15 +92,30 @@ export const PropertyDetailsPage: React.FC = () => {
     }
   }, [propertyId]);
 
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success('Link copied to clipboard');
+    } catch {
+      toast.error('Could not copy the link');
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-muted">
-        <div className="animate-pulse">
-          <div className="h-96 bg-muted"></div>
-          <div className="container mx-auto px-4 py-8 max-w-7xl">
-            <div className="h-8 bg-muted rounded mb-4"></div>
-            <div className="h-4 bg-muted rounded mb-2"></div>
-            <div className="h-4 bg-muted rounded"></div>
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
+          <Skeleton className="aspect-[21/9] w-full rounded-3xl" />
+        </div>
+        <div className="mx-auto max-w-7xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+          <Skeleton className="h-10 w-2/3 rounded-md" />
+          <Skeleton className="h-5 w-1/3 rounded-md" />
+          <div className="grid grid-cols-1 gap-12 lg:grid-cols-3">
+            <div className="space-y-4 lg:col-span-2">
+              <Skeleton className="h-24 w-full rounded-2xl" />
+              <Skeleton className="h-32 w-full rounded-2xl" />
+            </div>
+            <Skeleton className="h-72 w-full rounded-3xl" />
           </div>
         </div>
       </div>
@@ -60,10 +124,11 @@ export const PropertyDetailsPage: React.FC = () => {
 
   if (error || !property) {
     return (
-      <div className="min-h-screen bg-muted flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <p className="text-destructive mb-4">{error || 'Property not found'}</p>
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md rounded-3xl border-border/60 shadow-sm">
+          <CardContent className="p-8 text-center">
+            <h1 className="section-heading mb-2 text-2xl text-foreground">Something went wrong</h1>
+            <p className="mb-6 text-sm text-muted-foreground">{error || 'Property not found'}</p>
             <Button onClick={refetch}>Try Again</Button>
           </CardContent>
         </Card>
@@ -71,203 +136,219 @@ export const PropertyDetailsPage: React.FC = () => {
     );
   }
 
-  const averageRating = reviews && reviews.content && reviews.content.length > 0
-    ? reviews.content.reduce((sum: number, review: any) => sum + review.rating, 0) / reviews.content.length
-    : 0;
+  const averageRating =
+    reviews && reviews.content && reviews.content.length > 0
+      ? reviews.content.reduce((sum: number, review: Review) => sum + review.rating, 0) / reviews.content.length
+      : 0;
+
+  const stats = [
+    { icon: <Users className="h-5 w-5" />, label: `${property.maxGuests} guests` },
+    { icon: <BedDouble className="h-5 w-5" />, label: `${property.bedrooms} bedrooms` },
+    { icon: <Bath className="h-5 w-5" />, label: `${property.bathrooms} bathrooms` },
+    { icon: <Calendar className="h-5 w-5" />, label: `Min ${property.minStayNights} nights` },
+  ];
 
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section with Images */}
-      <div className="relative container mx-auto px-4 pt-6">
+      <div className="relative mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
         <PropertyImageGallery images={property.images || []} />
 
         {/* Overlay Actions */}
-        <div className="absolute top-4 right-4 flex gap-2">
-          <Button variant="secondary" size="sm" className="bg-white/90 hover:bg-white dark:bg-black/50 dark:hover:bg-black/70 dark:text-white">
-            <Share className="w-4 h-4 mr-2" />
+        <div className="absolute right-7 top-7 flex gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleShare}
+            className="rounded-full bg-white/90 shadow-sm backdrop-blur hover:bg-white dark:bg-black/50 dark:text-white dark:hover:bg-black/70"
+          >
+            <Share2 className="mr-2 h-4 w-4" />
             Share
           </Button>
-          <Button variant="secondary" size="sm" className="bg-white/90 hover:bg-white dark:bg-black/50 dark:hover:bg-black/70 dark:text-white">
-            <Heart className="w-4 h-4" />
+          <Button
+            variant="secondary"
+            size="icon"
+            aria-label={liked ? 'Remove from favorites' : 'Add to favorites'}
+            onClick={() => setLiked((v) => !v)}
+            className="h-9 w-9 rounded-full bg-white/90 shadow-sm backdrop-blur hover:bg-white dark:bg-black/50 dark:text-white dark:hover:bg-black/70"
+          >
+            <Heart className={`h-4 w-4 transition-colors ${liked ? 'fill-red-500 text-red-500' : ''}`} />
           </Button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-3">
           {/* Left Column - Property Details */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="space-y-10 lg:col-span-2">
             {/* Property Header */}
-            <div>
-              <div className="flex items-start justify-between mb-4">
+            <header>
+              <p className="landing-eyebrow mb-3 text-primary/70">Nestora · Stays</p>
+              <h1 className="section-heading mb-3 text-3xl leading-tight tracking-[-0.02em] text-foreground sm:text-4xl">
+                {property.title}
+              </h1>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4" />
+                  {property.address.city}, {property.address.country}
+                </span>
+                {averageRating > 0 && (
+                  <span className="flex items-center gap-1.5 font-medium text-foreground">
+                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    {averageRating.toFixed(1)}
+                    <span className="font-normal text-muted-foreground">({reviews?.totalElements || 0} reviews)</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Price + AI suggestion */}
+              <div className="mt-6 flex flex-wrap items-end gap-x-8 gap-y-3">
                 <div>
-                  <h1 className="text-3xl font-bold text-foreground mb-2">{property.title}</h1>
-                  <div className="flex items-center gap-4 text-muted-foreground mb-3">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-4 h-4" />
-                      <span>{property.address.city}, {property.address.country}</span>
-                    </div>
-                    {averageRating > 0 && (
-                      <div className="flex items-center gap-1">
-                        <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                        <span>{averageRating.toFixed(1)} ({reviews?.totalElements || 0} reviews)</span>
-                      </div>
-                    )}
-                  </div>
+                  <span className="font-display text-3xl font-semibold text-foreground">
+                    {formatUsd(property.pricePerNight)}
+                  </span>
+                  <span className="ml-1.5 text-muted-foreground">per night</span>
                 </div>
-              </div>
-
-            {/* Property Stats */}
-            <div className="flex items-center flex-wrap gap-6 text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  <span>{property.maxGuests} guests</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Bed className="w-5 h-5" />
-                  <span>{property.bedrooms} bedrooms</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Bath className="w-5 h-5" />
-                  <span>{property.bathrooms} bathrooms</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5" />
-                  <span>Min {property.minStayNights} nights</span>
-                </div>
-              </div>
-
-            {/* Price Section */}
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="text-3xl font-bold text-foreground mb-1">{formatEth(property.pricePerNight)} ETH</div>
-                <div className="text-muted-foreground">per night</div>
-                <div className="text-sm text-muted-foreground">≈ {formatUsd(ethToUsd(property.pricePerNight))}</div>
-                
-                {/* AI Suggested Price */}
                 {property.suggestedPricePerNight && property.suggestedPricePerNight !== property.pricePerNight && (
-                  <div className="mt-3 pt-3 border-t">
-                    <div className="flex items-center gap-2 mb-1">
-                      <AiBadge size="sm" />
-                      <span className="text-sm font-medium text-amber-600 dark:text-amber-400">AI Suggested</span>
-                    </div>
-                    <div className="text-lg font-semibold text-amber-600 dark:text-amber-400">
-                      {formatEth(property.suggestedPricePerNight)} ETH/night
-                    </div>
+                  <div className="flex items-center gap-2 rounded-full border border-warning/30 bg-warning/10 px-3.5 py-1.5">
+                    <AiBadge size="sm" />
+                    <span className="text-sm font-semibold text-warning">
+                      AI suggests {formatUsd(property.suggestedPricePerNight)}/night
+                    </span>
                   </div>
                 )}
               </div>
-            </div>
+            </header>
+
+            {/* Property Stats */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {stats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-card px-3.5 py-3"
+                >
+                  <span className="text-muted-foreground">{stat.icon}</span>
+                  <span className="text-sm font-medium text-foreground">{stat.label}</span>
+                </div>
+              ))}
             </div>
 
             {/* Owner Information */}
-            <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
-              <Avatar className="w-12 h-12">
-                <AvatarImage src={property.ownerProfilePicture} alt={`${property.ownerFirstName} ${property.ownerLastName}`} />
-                <AvatarFallback>
-                  {property.ownerFirstName?.[0]}{property.ownerLastName?.[0]}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-4 rounded-2xl border border-border/60 bg-card p-5">
+              <Avatar className="h-14 w-14 ring-2 ring-primary/15">
+                <AvatarImage
+                  src={property.ownerProfilePicture}
+                  alt={`${property.ownerFirstName} ${property.ownerLastName}`}
+                />
+                <AvatarFallback className="bg-gradient-to-br from-primary/20 to-secondary/20">
+                  {property.ownerFirstName?.[0]}
+                  {property.ownerLastName?.[0]}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1">
-                <p className="text-sm text-muted-foreground">Hosted by</p>
-                <p className="font-medium text-lg">{property.ownerFirstName} {property.ownerLastName}</p>
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="p-0 h-auto text-primary hover:underline"
-                  onClick={() => navigate(`/users/${property.ownerId}`)}
-                >
-                  View Profile
-                </Button>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Hosted by</p>
+                <p className="flex items-center gap-1.5 truncate text-lg font-medium text-foreground">
+                  {property.ownerFirstName} {property.ownerLastName}
+                  <BadgeCheck className="h-4 w-4 shrink-0 text-secondary" aria-label="Verified host" />
+                </p>
               </div>
+              <Button variant="outline" size="sm" className="rounded-full" onClick={() => navigate(`/users/${property.ownerId}`)}>
+                View Profile
+              </Button>
             </div>
 
             <Separator />
 
             {/* Description */}
-            <div>
-              <h2 className="text-2xl font-semibold text-foreground mb-4">About this place</h2>
-              <p className="text-muted-foreground leading-relaxed text-lg">{property.description}</p>
-            </div>
+            <section>
+              <h2 className="section-heading mb-4 text-2xl text-foreground">About this place</h2>
+              <p className="leading-relaxed text-muted-foreground">{property.description}</p>
+            </section>
 
             <Separator />
 
             {/* Amenities */}
-            <div>
-              <h2 className="text-2xl font-semibold text-foreground mb-6">What this place offers</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <section>
+              <h2 className="section-heading mb-6 text-2xl text-foreground">What this place offers</h2>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {property.amenities.map((amenity, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
-                    <Wifi className="w-5 h-5 text-muted-foreground" />
+                  <div key={index} className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-muted/60">
+                    <AmenityIcon amenity={amenity} />
                     <span className="text-foreground">{amenity}</span>
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
 
             <Separator />
 
             {/* Property Rules & Policies */}
-            <div>
-              <h2 className="text-2xl font-semibold text-foreground mb-6">Things to know</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div>
-                  <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <Shield className="w-5 h-5" />
+            <section>
+              <h2 className="section-heading mb-6 text-2xl text-foreground">Things to know</h2>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                <div className="rounded-2xl border border-border/60 bg-card p-5">
+                  <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Shield className="h-4 w-4" />
                     House rules
                   </h3>
-                  <ul className="space-y-2 text-muted-foreground">
+                  <ul className="space-y-2.5 text-muted-foreground">
                     <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span>Check-in after 3:00 PM</span>
+                      <CheckCircle className="h-4 w-4 shrink-0 text-success" />
+                      Check-in after 3:00 PM
                     </li>
                     <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span>Checkout before 11:00 AM</span>
+                      <CheckCircle className="h-4 w-4 shrink-0 text-success" />
+                      Checkout before 11:00 AM
                     </li>
                     <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span>{property.maxGuests} guests maximum</span>
+                      <CheckCircle className="h-4 w-4 shrink-0 text-success" />
+                      {property.maxGuests} guests maximum
                     </li>
                   </ul>
                 </div>
 
-                <div>
-                  <h3 className="font-semibold text-foreground mb-3">Cancellation policy</h3>
-                  <div className="text-muted-foreground">
-                    <p>Free cancellation up to {property.cancellationPolicyDays} days before check-in</p>
-                  </div>
+                <div className="rounded-2xl border border-border/60 bg-card p-5">
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Cancellation policy
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Free cancellation up to{' '}
+                    <span className="font-semibold text-foreground">{property.cancellationPolicyDays} days</span>{' '}
+                    before check-in.
+                  </p>
                 </div>
 
-                <div>
-                  <h3 className="font-semibold text-foreground mb-3">Safety & property</h3>
-                  <ul className="space-y-2 text-muted-foreground">
+                <div className="rounded-2xl border border-border/60 bg-card p-5">
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Safety & property
+                  </h3>
+                  <ul className="space-y-2.5 text-muted-foreground">
                     <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span>Security deposit: ${property.securityDeposit || 0}</span>
+                      <CheckCircle className="h-4 w-4 shrink-0 text-success" />
+                      Security deposit: {formatUsd(property.securityDeposit || 0)}
                     </li>
                     <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span>Verified host</span>
+                      <CheckCircle className="h-4 w-4 shrink-0 text-success" />
+                      Verified host
                     </li>
                   </ul>
                 </div>
               </div>
-            </div>
+            </section>
 
             <Separator />
 
             {/* Reviews Section */}
             {reviews && reviews.content && reviews.content.length > 0 && (
-              <div>
-                <div className="flex items-center gap-4 mb-6">
-                  <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
-                  <span className="text-xl font-semibold">
-                    {reviews.content.length > 0 
-                      ? (reviews.content.reduce((sum: number, review: any) => sum + review.rating, 0) / reviews.content.length).toFixed(1)
-                      : '0'} 
-                    · {reviews.totalElements} reviews
+              <section>
+                <div className="mb-6 flex items-center gap-3">
+                  <Star className="h-6 w-6 fill-yellow-400 text-yellow-400" />
+                  <span className="section-heading text-2xl text-foreground">
+                    {averageRating.toFixed(1)}
+                    <span className="ml-2 font-body text-base font-normal text-muted-foreground">
+                      · {reviews.totalElements} reviews
+                    </span>
                   </span>
                 </div>
                 <ReviewList
@@ -278,17 +359,14 @@ export const PropertyDetailsPage: React.FC = () => {
                     }
                   }}
                 />
-              </div>
+              </section>
             )}
 
             {/* Review Form - Only for Tenants */}
             {isTenant && propertyId && (
               <>
                 <Separator />
-                <ReviewForm
-                  propertyId={propertyId}
-                  onReviewSubmitted={() => refetch()}
-                />
+                <ReviewForm propertyId={propertyId} onReviewSubmitted={() => refetch()} />
               </>
             )}
           </div>

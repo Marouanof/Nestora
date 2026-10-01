@@ -31,7 +31,7 @@ import {
   Wifi,
   Home
 } from 'lucide-react';
-import { formatEth, formatUsd, ethToUsd } from '@/lib/utils';
+import { formatUsd } from '@/lib/utils';
 import type { Property } from '@/types/property.types';
 
 export const AdminPropertyDetailPage: React.FC = () => {
@@ -183,8 +183,7 @@ export const AdminPropertyDetailPage: React.FC = () => {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-3xl font-bold">{formatEth(property.pricePerNight)} ETH</div>
-            <div className="text-muted-foreground">≈ {formatUsd(ethToUsd(property.pricePerNight))}</div>
+            <div className="text-3xl font-bold">{formatUsd(property.pricePerNight)}</div>
           </div>
         </div>
       </div>

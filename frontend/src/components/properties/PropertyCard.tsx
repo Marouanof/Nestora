@@ -1,11 +1,9 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, Star } from 'lucide-react';
+import { Heart, Star, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { formatUsd, formatEth, ethToUsd } from '@/lib/utils';
+import { formatUsd } from '@/lib/utils';
 import { AiBadge } from '@/components/ai/AiBadge';
 import type { PropertySummary } from '@/types/property.types';
 
@@ -23,140 +21,142 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
   onDelete,
 }) => {
   const navigate = useNavigate();
+  const [liked, setLiked] = useState(false);
 
   // Get the main image (first image with displayOrder 0, or first image if no displayOrder 0)
-  const mainImage = property.images?.find(img => img.displayOrder === 0) || property.images?.[0];
+  const mainImage = property.images?.find((img) => img.displayOrder === 0) || property.images?.[0];
+  const FALLBACK_IMAGE = '/images/nestora/property-01.webp';
 
   return (
-    <Card className="cursor-pointer hover:shadow-lg transition-shadow pt-0" onClick={() => navigate(`/properties/${property.id}`)}>
-      <div className="relative">
+    <article
+      className="group cursor-pointer"
+      onClick={() => navigate(`/properties/${property.id}`)}
+    >
+      {/* Image */}
+      <div className="card-zoom relative aspect-[4/3] w-full rounded-2xl border border-border/50 bg-muted shadow-[0_16px_40px_-28px_rgba(13,11,38,0.35)]">
         {mainImage ? (
           <img
             src={mainImage.imageUrl}
             alt={mainImage.caption || property.title}
-            className="w-full h-48 object-cover rounded-t-lg"
+            loading="lazy"
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              if (e.currentTarget.src !== window.location.origin + FALLBACK_IMAGE) {
+                e.currentTarget.src = FALLBACK_IMAGE;
+              }
+            }}
           />
         ) : (
-          <div className="w-full h-48 bg-gray-200 rounded-t-lg flex items-center justify-center">
-            <span className="text-gray-500">No image</span>
-          </div>
+          <img
+            src={FALLBACK_IMAGE}
+            alt={property.title}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
         )}
+
+        {/* Bottom scrim for badges */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/45 to-transparent"
+        />
+
+        {/* Favorite */}
         <Button
           variant="ghost"
-          size="sm"
-          className="absolute top-2 right-2 bg-white/80 hover:bg-white"
+          size="icon"
+          tabIndex={-1}
+          aria-label={liked ? 'Remove from favorites' : 'Add to favorites'}
+          className="absolute right-3 top-3 h-9 w-9 rounded-full bg-white/85 text-foreground shadow-sm backdrop-blur transition-transform hover:scale-105 hover:bg-white active:scale-95 dark:bg-black/45 dark:text-white dark:hover:bg-black/65"
           onClick={(e) => {
             e.stopPropagation();
-            // Handle favorite toggle
+            setLiked((v) => !v);
           }}
         >
-          <Heart className="w-4 h-4" />
+          <Heart className={`h-4 w-4 transition-colors ${liked ? 'fill-red-500 text-red-500' : ''}`} />
         </Button>
+
+        {/* Rating pill */}
+        {property.averageRating != null && (
+          <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-foreground shadow-sm backdrop-blur dark:bg-black/55 dark:text-white">
+            <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+            {property.averageRating.toFixed(1)}
+          </div>
+        )}
+
+        {!property.instantBookable && (
+          <Badge className="absolute left-3 top-3 rounded-full bg-primary/95 px-2.5 text-[11px] font-medium text-primary-foreground shadow-sm">
+            Request to book
+          </Badge>
+        )}
       </div>
 
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-lg line-clamp-1">{property.title}</CardTitle>
-          {property.averageRating && (
-            <div className="flex items-center gap-1">
-              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-sm">{property.averageRating.toFixed(1)}</span>
-            </div>
+      {/* Content */}
+      <div className="px-1 pt-4">
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="line-clamp-1 text-base font-semibold tracking-tight text-foreground">
+            {property.title}
+          </h3>
+          {property.suggestedPricePerNight && property.suggestedPricePerNight !== property.pricePerNight && (
+            <span title={`AI suggested: ${formatUsd(property.suggestedPricePerNight)}/night`}>
+              <AiBadge size="sm" />
+            </span>
           )}
         </div>
-        <p className="text-sm text-muted-foreground">{property.address.city}, {property.address.country}</p>
-      </CardHeader>
 
-      <CardContent>
-        {/* Owner Information */}
-        <div className="flex items-center gap-3 mb-4 p-3 bg-muted/50 rounded-lg">
-          <Avatar className="w-8 h-8">
-            <AvatarImage src={property.ownerProfilePicture} alt={`${property.ownerFirstName} ${property.ownerLastName}`} />
-            <AvatarFallback className="text-xs">
-              {property.ownerFirstName?.[0]}{property.ownerLastName?.[0]}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1">
-            <p className="text-sm font-medium">Hosted by {property.ownerFirstName} {property.ownerLastName}</p>
-            <Button
-              variant="link"
-              size="sm"
-              className="p-0 h-auto text-xs text-primary hover:underline"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/users/${property.ownerId}`);
-              }}
-            >
-              View Profile
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex justify-between items-start mb-2">
-          <div className="flex-1">
-            <span className="text-xl font-bold">{formatEth(property.pricePerNight)} ETH/night</span>
-            <span className="text-sm text-muted-foreground block">≈ {formatUsd(ethToUsd(property.pricePerNight))}</span>
-            {property.suggestedPricePerNight && property.suggestedPricePerNight !== property.pricePerNight && (
-              <div className="mt-2 pt-2 border-t">
-                <div className="flex items-center gap-1 mb-1">
-                  <AiBadge size="sm" />
-                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400">AI Suggested</span>
-                </div>
-                <span className="text-sm text-amber-600 dark:text-amber-400 font-semibold">
-                  {formatEth(property.suggestedPricePerNight)} ETH/night
-                </span>
-              </div>
-            )}
-          </div>
-          <div className="flex gap-1">
-            {!property.instantBookable && (
-              <Badge variant="outline">Request Required</Badge>
-            )}
-          </div>
-        </div>
-
-        <p className="text-sm mb-2">
-          {property.bedrooms} bed • {property.bathrooms} bath • Max {property.maxGuests} guests
+        <p className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground">
+          <MapPin className="h-3.5 w-3.5" />
+          {property.address.city}, {property.address.country}
         </p>
 
-        <div className="flex flex-wrap gap-1 mb-4">
+        <p className="mt-1.5 line-clamp-1 text-sm text-muted-foreground">
+          {property.bedrooms} bed · {property.bathrooms} bath · Up to {property.maxGuests} guests
+        </p>
+
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           {property.amenities.slice(0, 3).map((amenity, index) => (
-            <Badge key={index} variant="secondary" className="text-xs">
+            <span
+              key={index}
+              className="rounded-full border border-border/70 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+            >
               {amenity}
-            </Badge>
+            </span>
           ))}
           {property.amenities.length > 3 && (
-            <Badge variant="secondary" className="text-xs">
-              +{property.amenities.length - 3} more
-            </Badge>
+            <span className="rounded-full border border-border/70 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+              +{property.amenities.length - 3}
+            </span>
           )}
+        </div>
+
+        <div className="mt-3 pt-1">
+          <span className="font-display text-lg font-semibold text-foreground">
+            {formatUsd(property.pricePerNight)}
+          </span>
+          <span className="ml-1 text-sm text-muted-foreground">/ night</span>
         </div>
 
         {showOwnerActions && (
-          <div className="flex gap-2">
+          <div className="mt-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
             <Button
               variant="outline"
               size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit?.(property.id);
-              }}
+              className="rounded-full"
+              onClick={() => onEdit?.(property.id)}
             >
               Edit
             </Button>
             <Button
               variant="destructive"
               size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete?.(property.id);
-              }}
+              className="rounded-full"
+              onClick={() => onDelete?.(property.id)}
             >
               Delete
             </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </article>
   );
 };

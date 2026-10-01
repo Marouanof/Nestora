@@ -49,12 +49,13 @@ import {
 } from 'lucide-react';
 import Logo from "@/assets/logo.svg?react";
 import { useState } from 'react';
-import { getVisibleMenuItems, roleHelpers } from '@/lib/auth.utils';
+import { getVisibleMenuItems, roleLabel, roleBadgeClass } from '@/lib/auth.utils';
 function Navbar() {
   const { isAuthenticated, user, logout } = authStore();
   const { theme, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [guestMenuOpen, setGuestMenuOpen] = useState(false);
   const location = useLocation();
 
   const visibleMenuItems = getVisibleMenuItems(isAuthenticated, user);
@@ -67,7 +68,7 @@ function Navbar() {
   const adminItems = visibleMenuItems.filter(item => Array.isArray(item.roles) && item.roles.includes('ROLE_ADMIN') && item.roles.length === 1);
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm flex items-center justify-center">
+    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm flex items-center justify-center border-border/60">
       <div className="container flex h-16 items-center justify-between px-4">
         {/* Logo and Brand */}
         <Link to="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
@@ -79,7 +80,7 @@ function Navbar() {
             <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
               Nestora
             </span>
-            <span className="text-xs text-muted-foreground -mt-1">Blockchain Rentals</span>
+            <span className="text-xs text-muted-foreground -mt-1">Smart Rentals</span>
           </div>
         </Link>
 
@@ -90,10 +91,10 @@ function Navbar() {
             <Link
               key={item.href}
               to={item.href}
-              className={`px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+              className={`px-3 py-2 text-sm font-medium rounded-full transition-all duration-200 ${
                 isActive(item.href)
-                  ? 'text-primary bg-primary/10 border border-primary/20'
-                  : 'text-muted-foreground hover:text-primary hover:bg-accent/50'
+                  ? 'text-primary bg-primary/10 font-semibold'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
               }`}
             >
               {item.label}
@@ -136,10 +137,10 @@ function Navbar() {
             <Link
               key={item.href}
               to={item.href}
-              className={`px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 flex items-center gap-1 ${
+              className={`px-3 py-2 text-sm font-medium rounded-full transition-all duration-200 flex items-center gap-1 ${
                 isActive(item.href)
-                  ? 'text-primary bg-primary/10 border border-primary/20'
-                  : 'text-muted-foreground hover:text-primary hover:bg-accent/50'
+                  ? 'text-primary bg-primary/10 font-semibold'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
               }`}
             >
               <Home className="w-4 h-4" />
@@ -233,7 +234,7 @@ function Navbar() {
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-64" align="end" forceMount>
+                  <DropdownMenuContent className="w-64" align="end">
                     <DropdownMenuLabel className="font-normal">
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-12 w-12 ring-2 ring-primary/20">
@@ -249,17 +250,8 @@ function Navbar() {
                           <p className="text-xs leading-none text-muted-foreground">
                             {user?.email}
                           </p>
-                          <Badge
-                            variant="secondary"
-                            className={`w-fit text-xs ${
-                              user?.role === 'ROLE_TENANT'
-                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                                : user?.role === 'ROLE_OWNER'
-                                ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                                : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
-                            }`}
-                          >
-                            {user?.role === 'ROLE_TENANT' ? 'Tenant' : user?.role === 'ROLE_OWNER' ? 'Owner' : 'Admin'}
+                          <Badge variant="secondary" className={`w-fit text-xs ${roleBadgeClass(user?.role)}`}>
+                            {roleLabel(user?.role)}
                           </Badge>
                         </div>
                       </div>
@@ -323,7 +315,7 @@ function Navbar() {
                         <span className="text-lg font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                           Nestora
                         </span>
-                        <span className="text-xs text-muted-foreground -mt-1">Blockchain Rentals</span>
+                        <span className="text-xs text-muted-foreground -mt-1">Smart Rentals</span>
                       </div>
                     </SheetTitle>
                   </SheetHeader>
@@ -345,17 +337,8 @@ function Navbar() {
                           <p className="text-xs text-muted-foreground">
                             {user.email}
                           </p>
-                          <Badge
-                            variant="secondary"
-                            className={`w-fit text-xs mt-1 ${
-                              user.role === 'ROLE_TENANT'
-                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                                : user.role === 'ROLE_OWNER'
-                                ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                                : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
-                            }`}
-                          >
-                            {roleHelpers.isTenant(user) ? 'Tenant' : roleHelpers.isOwner(user) ? 'Owner' : 'Admin'}
+                          <Badge variant="secondary" className={`w-fit text-xs mt-1 ${roleBadgeClass(user.role)}`}>
+                            {roleLabel(user.role)}
                           </Badge>
                         </div>
                       </div>
@@ -517,7 +500,7 @@ function Navbar() {
               </Button>
               {/* Mobile auth buttons */}
               <div className="sm:hidden">
-                <Sheet>
+                <Sheet open={guestMenuOpen} onOpenChange={setGuestMenuOpen}>
                   <SheetTrigger asChild>
                     <Button variant="ghost" size="icon">
                       <Menu className="h-5 w-5" />
@@ -534,17 +517,18 @@ function Navbar() {
                           <span className="text-lg font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                             Nestora
                           </span>
-                          <span className="text-xs text-muted-foreground -mt-1">Blockchain Rentals</span>
+                          <span className="text-xs text-muted-foreground -mt-1">Smart Rentals</span>
                         </div>
                       </SheetTitle>
                     </SheetHeader>
-                    <div className="flex flex-col space-y-6 mt-6">
+                    <div className="mt-6 flex flex-col space-y-6">
                       {/* Navigation links */}
                       <div className="flex flex-col space-y-2">
                         {publicItems.map((item) => (
                           <Link
                             key={item.href}
                             to={item.href}
+                            onClick={() => setGuestMenuOpen(false)}
                             className={`flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
                               isActive(item.href)
                                 ? 'bg-primary text-primary-foreground shadow-sm'
@@ -560,13 +544,14 @@ function Navbar() {
 
                       {/* Resources */}
                       <div className="border-t pt-4">
-                        <p className="text-xs font-semibold text-muted-foreground px-4 py-2 flex items-center gap-2">
+                        <p className="px-4 py-2 text-xs font-semibold text-muted-foreground flex items-center gap-2">
                           <HelpCircle className="w-4 h-4" />
                           Resources
                         </p>
                         <div className="space-y-1">
                           <Link
                             to="/faq"
+                            onClick={() => setGuestMenuOpen(false)}
                             className="flex items-center space-x-3 px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
                           >
                             <HelpCircle className="w-4 h-4" />
@@ -574,6 +559,7 @@ function Navbar() {
                           </Link>
                           <Link
                             to="/blog"
+                            onClick={() => setGuestMenuOpen(false)}
                             className="flex items-center space-x-3 px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
                           >
                             <BookOpen className="w-4 h-4" />
@@ -581,6 +567,7 @@ function Navbar() {
                           </Link>
                           <Link
                             to="/how-it-works"
+                            onClick={() => setGuestMenuOpen(false)}
                             className="flex items-center space-x-3 px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
                           >
                             <Zap className="w-4 h-4" />
@@ -588,6 +575,7 @@ function Navbar() {
                           </Link>
                           <Link
                             to="/"
+                            onClick={() => setGuestMenuOpen(false)}
                             className="flex items-center space-x-3 px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
                           >
                             <Info className="w-4 h-4" />
@@ -597,12 +585,12 @@ function Navbar() {
                       </div>
 
                       {/* Auth buttons */}
-                      <div className="border-t pt-4 flex flex-col space-y-3">
+                      <div className="border-t flex flex-col space-y-3 pt-4">
                         <Button asChild className="w-full">
-                          <Link to="/login">Login</Link>
+                          <Link to="/login" onClick={() => setGuestMenuOpen(false)}>Login</Link>
                         </Button>
                         <Button asChild variant="outline" className="w-full">
-                          <Link to="/register">Register</Link>
+                          <Link to="/register" onClick={() => setGuestMenuOpen(false)}>Register</Link>
                         </Button>
                       </div>
                     </div>

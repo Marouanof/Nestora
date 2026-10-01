@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { MapPin, Star, Users, Bed, Bath, DollarSign, Eye } from 'lucide-react';
 import { PropertyService } from '@/services/property.service';
 import type { PropertySummary } from '@/types/property.types';
-import { formatEth } from '@/lib/utils';
+import { formatUsd } from '@/lib/utils';
 import 'leaflet/dist/leaflet.css';
 
 // Fix for default markers in react-leaflet
@@ -44,7 +44,7 @@ const createCustomIcon = (price: number, type: string) => {
         font-weight: bold;
         color: white;
       ">
-        ${formatEth(price)}<br/>ETH
+        ${Math.round(price)}
       </div>
     `,
     iconSize: [40, 40],
@@ -243,7 +243,7 @@ export const MapPage: React.FC = () => {
                         <div className="min-w-[250px]">
                           <div className="flex gap-3 mb-3">
                             <img
-                              src={property.images[0]?.imageUrl || '/placeholder-property.jpg'}
+                              src={property.images[0]?.imageUrl || '/images/nestora/property-01.webp'}
                               alt={property.title}
                               className="w-16 h-16 object-cover rounded-lg"
                             />
@@ -261,7 +261,7 @@ export const MapPage: React.FC = () => {
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-1">
                               <DollarSign className="w-4 h-4" />
-                              <span className="font-bold">{formatEth(property.pricePerNight)} ETH</span>
+                              <span className="font-bold">{formatUsd(property.pricePerNight)}</span>
                               <span className="text-sm text-muted-foreground">/night</span>
                             </div>
                             <Badge variant="secondary" className="text-xs">
@@ -318,7 +318,7 @@ export const MapPage: React.FC = () => {
                 <div className="space-y-4">
                   <div>
                     <img
-                      src={selectedProperty.images[0]?.imageUrl || '/placeholder-property.jpg'}
+                      src={selectedProperty.images[0]?.imageUrl || '/images/nestora/property-01.webp'}
                       alt={selectedProperty.title}
                       className="w-full h-32 object-cover rounded-lg mb-3"
                     />
@@ -334,7 +334,7 @@ export const MapPage: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
                       <DollarSign className="w-4 h-4" />
-                      <span className="font-bold text-lg">{formatEth(selectedProperty.pricePerNight)} ETH</span>
+                      <span className="font-bold text-lg">{formatUsd(selectedProperty.pricePerNight)}</span>
                       <span className="text-sm text-muted-foreground">/night</span>
                     </div>
                     <Badge className={getPropertyTypeColor(selectedProperty.type)}>

@@ -74,6 +74,7 @@ export const OwnerProfilePage = () => {
   }
 
   const { userInfo, properties } = profile;
+  const userRole = userInfo.roles?.[0] ?? userInfo.role;
   const activeProperties = properties.filter(p => p.status === 'ACTIVE');
 
   return (
@@ -105,19 +106,14 @@ export const OwnerProfilePage = () => {
 
               <div className="flex flex-wrap justify-center md:justify-start gap-2 mb-4">
                 <Badge variant="secondary" className="capitalize">
-                  {userInfo.role === 'ROLE_OWNER' ? 'Host' : userInfo.role === 'ROLE_TENANT' ? 'Guest' : 'Admin'}
+                  {userRole === 'ROLE_OWNER' ? 'Host' : 'Guest'}
                 </Badge>
                 {userInfo.emailVerified && (
                   <Badge variant="outline" className="text-green-600">
                     ✓ Email Verified
                   </Badge>
                 )}
-                {userInfo.walletVerified && (
-                  <Badge variant="outline" className="text-green-600">
-                    ✓ Wallet Verified
-                  </Badge>
-                )}
-              </div>
+            </div>
 
               {userInfo.description && (
                 <p className="text-muted-foreground mb-4">{userInfo.description}</p>
@@ -158,14 +154,14 @@ export const OwnerProfilePage = () => {
       {/* Properties Section */}
       <div>
         <h2 className="text-2xl font-bold mb-4">
-          {userInfo.role === 'ROLE_OWNER' ? 'Properties' : 'Booked Properties'} ({activeProperties.length})
+          {userRole === 'ROLE_OWNER' ? 'Properties' : 'Booked Properties'} ({activeProperties.length})
         </h2>
 
         {activeProperties.length === 0 ? (
           <Card>
             <CardContent className="p-6 text-center">
               <p className="text-muted-foreground">
-                {userInfo.role === 'ROLE_OWNER'
+                {userRole === 'ROLE_OWNER'
                   ? 'This host hasn\'t listed any properties yet.'
                   : 'No active properties found.'
                 }

@@ -12,7 +12,7 @@ import { LocationPicker } from './LocationPicker';
 import { PropertyService } from '@/services/property.service';
 import type { Property } from '@/types/property.types';
 import { useNavigate } from 'react-router-dom';
-import { usdToEth, ethToUsd, formatEth, formatUsd } from '@/lib/utils';
+import { formatUsd } from '@/lib/utils';
 
 interface PropertyFormProps {
   initialData?: Partial<Property>;
@@ -84,7 +84,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
       longitude: number;
     };
     pricePerNight: number;
-    pricePerNightEth: number;
+
     maxGuests: number;
     bedrooms: number;
     bathrooms: number;
@@ -107,7 +107,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
       longitude: 0,
     },
     pricePerNight: 0,
-    pricePerNightEth: 0,
+
     maxGuests: 1,
     bedrooms: 1,
     bathrooms: 1,
@@ -137,7 +137,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
           longitude: 0,
         },
         pricePerNight: initialData.pricePerNight || 0,
-        pricePerNightEth: initialData.pricePerNightEth || 0,
+
         maxGuests: initialData.maxGuests || 1,
         bedrooms: initialData.bedrooms || 1,
         bathrooms: initialData.bathrooms || 1,
@@ -208,7 +208,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
           latitude: formData.address.latitude,
           longitude: formData.address.longitude,
         },
-        pricePerNight: formData.pricePerNightEth,
+        pricePerNight: formData.pricePerNight,
         maxGuests: formData.maxGuests,
         bedrooms: formData.bedrooms,
         bathrooms: formData.bathrooms,
@@ -252,15 +252,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleUsdPriceChange = (usd: number) => {
-    const eth = usdToEth(usd);
-    setFormData(prev => ({ ...prev, pricePerNight: usd, pricePerNightEth: eth }));
-  };
 
-  const handleEthPriceChange = (eth: number) => {
-    const usd = ethToUsd(eth);
-    setFormData(prev => ({ ...prev, pricePerNight: usd, pricePerNightEth: eth }));
-  };
 
   const updateAddress = (field: string, value: string | number) => {
     if (field === 'latitude' || field === 'longitude') {
@@ -455,34 +447,17 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
         return (
           <div className="space-y-4">
             <div>
-              <Label>Price per Night</Label>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="pricePerNight" className="text-sm text-muted-foreground">USD</Label>
-                  <Input
-                    id="pricePerNight"
-                    type="number"
-                    placeholder="100"
-                    value={formData.pricePerNight}
-                    onChange={(e) => handleUsdPriceChange(parseFloat(e.target.value) || 0)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="pricePerNightEth" className="text-sm text-muted-foreground">ETH</Label>
-                  <Input
-                    id="pricePerNightEth"
-                    type="number"
-                    step="0.0001"
-                    placeholder="0.0500"
-                    value={formData.pricePerNightEth}
-                    onChange={(e) => handleEthPriceChange(parseFloat(e.target.value) || 0)}
-                    required
-                  />
-                </div>
-              </div>
+              <Label htmlFor="pricePerNight">Price per Night (USD)</Label>
+              <Input
+                id="pricePerNight"
+                type="number"
+                placeholder="100"
+                value={formData.pricePerNight}
+                onChange={(e) => updateFormData('pricePerNight', parseFloat(e.target.value) || 0)}
+                required
+              />
               <p className="text-xs text-muted-foreground mt-1">
-                {formatUsd(formData.pricePerNight)} ≈ {formatEth(formData.pricePerNightEth)} ETH
+                {formatUsd(formData.pricePerNight)}
               </p>
             </div>
             <div>

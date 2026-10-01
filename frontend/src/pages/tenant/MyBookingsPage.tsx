@@ -10,7 +10,7 @@ import { useMyBookings } from '@/hooks/bookings/useMyBookings';
 import { useCancelBooking } from '@/hooks/bookings/useCancelBooking';
 import { CancelBookingDialog } from '@/components/bookings/CancelBookingDialog';
 import type { Booking } from '@/types/booking.types';
-import { formatEth } from '@/lib/utils';
+import { formatMad } from '@/lib/utils';
 
 export const MyBookingsPage = () => {
   const { bookings, loading, error, refetch } = useMyBookings();
@@ -30,9 +30,14 @@ export const MyBookingsPage = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'CONFIRMED': return 'bg-green-100 text-green-800';
+      case 'CONFIRMED':
+      case 'COMPLETED':
+      case 'ACTIVE': return 'bg-green-100 text-green-800';
+      case 'PENDING_PAYMENT':
+      case 'PAYMENT_PROCESSING':
       case 'PENDING': return 'bg-yellow-100 text-yellow-800';
-      case 'CANCELLED': return 'bg-red-100 text-red-800';
+      case 'CANCELLED':
+      case 'DISPUTED': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -89,7 +94,7 @@ export const MyBookingsPage = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm">{formatEth(booking.totalPrice)} ETH</span>
+                    <span className="text-sm">{formatMad(booking.totalPrice)}</span>
                   </div>
                   {booking.property?.address && (
                     <div className="flex items-center gap-2">
@@ -104,6 +109,11 @@ export const MyBookingsPage = () => {
                   <Button variant="outline" size="sm" asChild>
                     <Link to={`/bookings/${booking.id}`}>View Details</Link>
                   </Button>
+                  {(booking.status === 'PENDING_PAYMENT' || booking.status === 'PAYMENT_PROCESSING') && (
+                    <Button variant="default" size="sm" asChild>
+                      <Link to={`/bookings/${booking.id}`}>Pay now</Link>
+                    </Button>
+                  )}
                   {booking.status === 'CONFIRMED' && (
                     <Button
                       variant="destructive"

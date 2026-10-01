@@ -63,7 +63,7 @@ export const AdminUserDetails: React.FC = () => {
     if (!userId) return;
 
     try {
-      const initialRole = getPrimaryRole(user);
+      const initialRole = user ? getPrimaryRole(user) : undefined;
       await updateProfileMutation.mutateAsync({
         id: userId,
         data: {
