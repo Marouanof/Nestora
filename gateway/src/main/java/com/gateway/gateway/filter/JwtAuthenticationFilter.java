@@ -14,6 +14,9 @@ import java.util.List;
 public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
     private final JwtTokenProvider jwtTokenProvider;
 
+    @org.springframework.beans.factory.annotation.Value("${app.gateway.shared-secret}")
+    private String gatewaySharedSecret;
+
     public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
         super(Config.class);
         this.jwtTokenProvider = jwtTokenProvider;
@@ -50,6 +53,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                     .header("X-Auth-User-Email", email != null ? email : "")
                     .header("X-Auth-User-Id", userId != null ? userId.toString() : "")
                     .header("X-Auth-Roles", roles != null ? String.join(",", roles) : "")
+                    .header("X-Gateway-Secret", gatewaySharedSecret != null ? gatewaySharedSecret : "")
                     .build();
 
             return chain.filter(exchange.mutate().request(mutatedRequest).build());
@@ -82,8 +86,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                     path.equals("/api/auth/forgot-password") ||
                     path.equals("/api/auth/reset-password") ||
                     path.startsWith("/api/auth/verify-email") ||
-                    path.equals("/api/auth/resend-verification") ||
-                    path.equals("/api/auth/test");
+                    path.equals("/api/auth/resend-verification");
         }
         if ((path.equals("/api/properties") || path.equals("/api/properties/recommendations")) && "GET".equalsIgnoreCase(method)) {
             return true;
@@ -102,10 +105,6 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
 
         if (path.startsWith("/files/")) {
             return true;
-        }
-
-        if (path.equals("/api/properties/me") && "GET".equalsIgnoreCase(method)) {
-            return false;
         }
 
         if (path.startsWith("/v3/api-docs") || path.startsWith("/swagger-ui")) {

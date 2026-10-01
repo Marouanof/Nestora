@@ -8,8 +8,4 @@ import java.util.List;
 @Data
 public class BlockDatesRequest {
     private List<LocalDate> dates;
-
-    public List<LocalDate> getDates() {
-        return dates;
-    }
 }

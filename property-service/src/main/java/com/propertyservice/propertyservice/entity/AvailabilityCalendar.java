@@ -12,9 +12,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "availability_calendar", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"property_id", "date"})
-})
+@Table(name = "availability_calendar",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = {"property_id", "date"})
+        },
+        indexes = {
+                @Index(name = "idx_availability_lock_token", columnList = "lock_token"),
+                @Index(name = "idx_availability_lock_expires", columnList = "lock_expires_at")
+        })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -40,7 +45,7 @@ public class AvailabilityCalendar {
     private String lockToken; // Token unique pour identifier ce verrou
 
     @Column(name = "lock_expires_at")
-    private LocalDateTime lockExpiresAt; // Date d'expiration du verrou (15 min)
+    private LocalDateTime lockExpiresAt; // Date d'expiration du verrou (1h)
 
     @Column(name = "tenant_id")
     private Long tenantId; // ID du locataire qui veut réserver

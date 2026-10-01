@@ -2,7 +2,6 @@ package com.propertyservice.propertyservice.service;
 
 import com.propertyservice.propertyservice.dto.*;
 import com.propertyservice.propertyservice.entity.Property;
-import com.propertyservice.propertyservice.enu.ListingStatus;
 import com.propertyservice.propertyservice.repository.PropertyRepository;
 import com.propertyservice.propertyservice.specification.PropertySpecifications;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +27,10 @@ public class SearchService {
     public SearchResponse searchProperties(SearchRequest request, Pageable pageable) {
         log.info("🔍 Searching properties with filters: {}", request);
 
+        boolean geoSearch = request.hasGeoSearch();
+        final double effectiveRadius =
+                request.getRadiusKm() != null && request.getRadiusKm() > 0 ? request.getRadiusKm() : 50.0;
+
         // 1. Construire la specification avec tous les filtres
         Specification<Property> spec = buildSpecification(request);
 
@@ -35,12 +38,24 @@ public class SearchService {
         Page<Property> propertiesPage = propertyRepository.findAll(spec, pageable);
 
         // 3. Convertir en PropertyResponse
-        Page<PropertyResponse> propertyResponses = propertiesPage
-                .map(propertyService::mapToPropertyResponse);
+        java.util.List<PropertyResponse> responses = new java.util.ArrayList<>(
+                propertiesPage.map(propertyService::mapToPropertyResponse).getContent());
+
+        // 4. Géo-recherche : filtrage exact haversine + tri par distance dans la page
+        if (geoSearch) {
+            responses = responses.stream()
+                    .map(r -> attachDistance(r, request.getLatitude(), request.getLongitude()))
+                    .filter(r -> r.getDistanceKm() != null && r.getDistanceKm() <= effectiveRadius)
+                    .sorted(java.util.Comparator.comparingDouble(PropertyResponse::getDistanceKm))
+                    .toList();
+        }
+
+        Page<PropertyResponse> propertyResponses =
+                new org.springframework.data.domain.PageImpl<>(responses, pageable, propertiesPage.getTotalElements());
 
         return SearchResponse.builder()
                 .properties(propertyResponses)
-                .totalProperties(propertiesPage.getTotalElements())
+                .totalProperties(geoSearch ? responses.size() : propertiesPage.getTotalElements())
                 .currentPage(propertiesPage.getNumber())
                 .totalPages(propertiesPage.getTotalPages())
                 .build();
@@ -99,6 +114,37 @@ public class SearchService {
             spec = spec.and(PropertySpecifications.isInstantBookable(request.getInstantBookable()));
         }
 
+        // 10. Équipements requis
+        if (request.getAmenities() != null && !request.getAmenities().isEmpty()) {
+            spec = spec.and(PropertySpecifications.hasAmenities(request.getAmenities()));
+        }
+
+        // 11. Géo-recherche : pré-filtre bounding box en SQL
+        if (request.hasGeoSearch()) {
+            double radiusKm = request.getRadiusKm() != null && request.getRadiusKm() > 0 ? request.getRadiusKm() : 50.0;
+            spec = spec.and(PropertySpecifications.withinBoundingBox(
+                    request.getLatitude(), request.getLongitude(), radiusKm));
+        }
+
         return spec;
+    }
+
+    private PropertyResponse attachDistance(PropertyResponse response, Double lat, Double lon) {
+        var address = response.getAddress();
+        if (address == null || address.getLatitude() == null || address.getLongitude() == null) {
+            return response;
+        }
+        response.setDistanceKm(haversineKm(lat, lon, address.getLatitude(), address.getLongitude()));
+        return response;
+    }
+
+    private static double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        double earthRadiusKm = 6371.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 }

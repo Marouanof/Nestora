@@ -2,10 +2,13 @@ package com.propertyservice.propertyservice.service;
 
 import com.propertyservice.propertyservice.dto.ReviewResponse;
 import com.propertyservice.propertyservice.dto.UserProfileDTO;
+import com.propertyservice.propertyservice.client.BookingClient;
 import com.propertyservice.propertyservice.client.UserProfileClient;
 import com.propertyservice.propertyservice.entity.Property;
 import com.propertyservice.propertyservice.entity.Review;
 import com.propertyservice.propertyservice.exception.PropertyNotFoundException;
+import com.propertyservice.propertyservice.exception.ReviewNotAllowedException;
+import com.propertyservice.propertyservice.exception.ReviewNotFoundException;
 import com.propertyservice.propertyservice.repository.PropertyRepository;
 import com.propertyservice.propertyservice.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,7 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final PropertyRepository propertyRepository;
     private final UserProfileClient userProfileClient;
+    private final BookingClient bookingClient;
 
     @Transactional
     public ReviewResponse createReview(Long propertyId, Integer rating, String comment, Long userId) {
@@ -31,12 +35,18 @@ public class ReviewService {
 
         // Vérifier si l'utilisateur a déjà review cette propriété
         if (reviewRepository.existsByUserIdAndPropertyId(userId, propertyId)) {
-            throw new RuntimeException("You have already reviewed this property");
+            throw new ReviewNotAllowedException("You have already reviewed this property");
         }
 
         // Vérifier que l'utilisateur ne review pas sa propre propriété
         if (property.getOwnerId().equals(userId)) {
-            throw new RuntimeException("You cannot review your own property");
+            throw new ReviewNotAllowedException("You cannot review your own property");
+        }
+
+        // Vérifier que l'utilisateur a réellement séjourné dans la propriété (avis vérifié)
+        if (!bookingClient.hasCompletedStay(propertyId, userId)) {
+            throw new ReviewNotAllowedException(
+                    "Only guests who completed a stay at this property can leave a review");
         }
 
         Review review = Review.builder()
@@ -71,13 +81,31 @@ public class ReviewService {
     }
 
     @Transactional
-    public void deleteReview(Long reviewId, Long userId) {
+    public void deleteReviewForProperty(Long reviewId, Long userId, Long propertyId) {
         Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new RuntimeException("Review not found"));
+                .orElseThrow(() -> new ReviewNotFoundException("Review not found"));
+
+        if (!review.getProperty().getId().equals(propertyId)) {
+            throw new ReviewNotAllowedException("Review does not belong to this property");
+        }
 
         // Vérifier que l'utilisateur peut supprimer cette review
         if (!review.getUserId().equals(userId)) {
-            throw new RuntimeException("Unauthorized to delete this review");
+            throw new ReviewNotAllowedException("Unauthorized to delete this review");
+        }
+
+        reviewRepository.delete(review);
+        log.info("Review deleted with ID: {} by user: {} for property: {}", reviewId, userId, propertyId);
+    }
+
+    @Transactional
+    public void deleteReview(Long reviewId, Long userId) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ReviewNotFoundException("Review not found"));
+
+        // Vérifier que l'utilisateur peut supprimer cette review
+        if (!review.getUserId().equals(userId)) {
+            throw new ReviewNotAllowedException("Unauthorized to delete this review");
         }
 
         reviewRepository.delete(review);
@@ -87,7 +115,7 @@ public class ReviewService {
     @Transactional
     public void adminDeleteReview(Long reviewId) {
         if (!reviewRepository.existsById(reviewId)) {
-            throw new RuntimeException("Review not found");
+            throw new ReviewNotFoundException("Review not found");
         }
         reviewRepository.deleteById(reviewId);
         log.info("Admin deleted review {}", reviewId);

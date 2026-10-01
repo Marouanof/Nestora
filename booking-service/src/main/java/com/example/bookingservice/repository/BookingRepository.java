@@ -11,26 +11,22 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Long> {
-
-    List<Booking> findByPropertyId(Long propertyId);
 
     List<Booking> findByTenantId(Long tenantId);
 
     List<Booking> findByOwnerId(Long ownerId);
 
-    Optional<Booking> findByLockToken(String lockToken);
-
     List<Booking> findByStatus(BookingStatus status);
 
     // Trouver les bookings actifs pour une propriété à une date
+    // Intervalle [checkIn, checkOut) : le jour de checkout n'est pas en conflit
     @Query("SELECT b FROM Booking b WHERE b.propertyId = :propertyId " +
             "AND b.status IN (com.example.bookingservice.enu.BookingStatus.CONFIRMED, " +
             "com.example.bookingservice.enu.BookingStatus.ACTIVE) " +
-            "AND (b.checkIn <= :checkOut AND b.checkOut >= :checkIn)")
+            "AND (b.checkIn < :checkOut AND b.checkOut > :checkIn)")
     List<Booking> findConflictingBookings(@Param("propertyId") Long propertyId,
                                           @Param("checkIn") LocalDate checkIn,
                                           @Param("checkOut") LocalDate checkOut);
@@ -46,13 +42,12 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Query("SELECT COUNT(b) FROM Booking b WHERE b.ownerId = :ownerId")
     long countByOwnerId(@Param("ownerId") Long ownerId);
 
-    @Query("SELECT COUNT(b) FROM Booking b WHERE b.tenantId = :tenantId")
-    long countByTenantId(@Param("tenantId") Long tenantId);
-
-    @Query("SELECT SUM(b.totalPrice) FROM Booking b WHERE b.ownerId = :ownerId AND b.status = 'CONFIRMED'")
+    @Query("SELECT SUM(b.totalPrice) FROM Booking b WHERE b.ownerId = :ownerId AND b.status IN ('CONFIRMED','ACTIVE','COMPLETED')")
     BigDecimal sumRevenueByOwnerId(@Param("ownerId") Long ownerId);
 
     long countByOwnerIdAndStatus(Long ownerId, BookingStatus status);
 
     long countByTenantIdAndStatus(Long tenantId, BookingStatus status);
+
+    boolean existsByPropertyIdAndTenantIdAndStatus(Long propertyId, Long tenantId, BookingStatus status);
 }

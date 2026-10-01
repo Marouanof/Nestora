@@ -43,4 +43,7 @@ public class PropertyResponse {
     // Stats calculées
     private Double averageRating;
     private Integer totalReviews;
+
+    // Géo-recherche : distance en km depuis le point de recherche
+    private Double distanceKm;
 }

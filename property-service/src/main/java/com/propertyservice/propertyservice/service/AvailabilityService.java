@@ -65,7 +65,7 @@ public class AvailabilityService {
                             .status(AvailabilityStatus.AVAILABLE)
                             .build());
 
-            availability.setStatus(AvailabilityStatus.BOOKED);
+            availability.setStatus(AvailabilityStatus.BLOCKED);
             availabilityRepository.save(availability);
         }
 
@@ -84,7 +84,8 @@ public class AvailabilityService {
         for (LocalDate date : dates) {
                 availabilityRepository.findByPropertyIdAndDate(propertyId, date)
                     .ifPresent(availability -> {
-                        if (availability.getStatus() == AvailabilityStatus.BOOKED) {
+                        // Ne libérer que les blocages owner, jamais les réservations guests
+                        if (availability.getStatus() == AvailabilityStatus.BLOCKED) {
                             availability.setStatus(AvailabilityStatus.AVAILABLE);
                             availabilityRepository.save(availability);
                         }
@@ -94,8 +95,9 @@ public class AvailabilityService {
         log.info("Dates unblocked for property {} by user {}", propertyId, ownerId);
     }
 
+    // Nuits facturées/verrouillées : [startDate, endDate) — le jour du check-out reste réservable
     private boolean areDatesAvailable(Long propertyId, LocalDate startDate, LocalDate endDate) {
-        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+        for (LocalDate date = startDate; date.isBefore(endDate); date = date.plusDays(1)) {
             Optional<AvailabilityCalendar> calendarEntry =
                     availabilityRepository.findByPropertyIdAndDate(propertyId, date);
 
@@ -103,7 +105,8 @@ public class AvailabilityService {
             if (calendarEntry.isPresent()) {
                 AvailabilityStatus status = calendarEntry.get().getStatus();
                 if (status == AvailabilityStatus.LOCKED ||
-                        status == AvailabilityStatus.BOOKED) {
+                        status == AvailabilityStatus.BOOKED ||
+                        status == AvailabilityStatus.BLOCKED) {
                     return false; // Date non disponible
                 }
             }
@@ -130,14 +133,21 @@ public class AvailabilityService {
 
         validateDates(startDate, endDate);
 
+        long numberOfNights = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate);
+        if (numberOfNights < property.getMinStayNights()) {
+            throw new IllegalArgumentException(
+                    "Minimum stay not satisfied. Minimum nights: " + property.getMinStayNights() +
+                            ", requested: " + numberOfNights);
+        }
+
         if (!areDatesAvailable(propertyId, startDate, endDate)) {
             throw new RuntimeException("Dates not available for reservation");
         }
 
         String lockToken = UUID.randomUUID().toString();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(1);
+        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(15);
 
-        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+        for (LocalDate date = startDate; date.isBefore(endDate); date = date.plusDays(1)) {
             AvailabilityCalendar availability = availabilityRepository
                     .findByPropertyIdAndDate(propertyId, date)
                     .orElse(AvailabilityCalendar.builder()
@@ -160,39 +170,12 @@ public class AvailabilityService {
         return lockToken;
     }
 
-    /**
-     * Méthode appelée par Booking-Service quand la réservation est confirmée
-     * Booking-Service fera : POST /api/properties/{id}/availability/confirm/{token}
-     */
-    @Transactional
-    public void confirmReservation(Long propertyId, String lockToken) {
-        List<AvailabilityCalendar> lockedDates =
-                availabilityRepository.findByPropertyIdAndLockToken(propertyId, lockToken);
-
-        if (lockedDates.isEmpty()) {
-            throw new RuntimeException("Invalid or expired lock token: " + lockToken);
-        }
-
-        // IMPORTANT : On ne marque PAS comme "BOOKED" ici
-        // On garde le statut PENDING_RESERVATION mais on enlève juste le verrou
-        // Booking-Service gère le statut final dans sa propre base
-
-        for (AvailabilityCalendar date : lockedDates) {
-            date.setStatus(AvailabilityStatus.BOOKED);
-            // Mais on enlève le verrou temporaire
-            date.setLockToken(null);
-            date.setLockExpiresAt(null);
-            // Le tenantId reste pour historique
-            availabilityRepository.save(date);
-        }
-
-        log.info("✅ Reservation confirmed: property={}, token={}", propertyId, lockToken);
-    }
-
     public List<LocalDate> getUnavailableDates(Long propertyId, LocalDate start, LocalDate end) {
         return availabilityRepository.findByPropertyIdAndDateBetween(propertyId, start, end)
                 .stream()
-                .filter(a -> a.getStatus() == AvailabilityStatus.BOOKED || a.getStatus() == AvailabilityStatus.LOCKED)
+                .filter(a -> a.getStatus() == AvailabilityStatus.BOOKED
+                        || a.getStatus() == AvailabilityStatus.LOCKED
+                        || a.getStatus() == AvailabilityStatus.BLOCKED)
                 .map(AvailabilityCalendar::getDate)
                 .toList();
     }
@@ -244,8 +227,10 @@ public class AvailabilityService {
     }
 
     /**
-     * Calcule le prix total pour une période
-     * Exemple: 150€/nuit × 3 nuits = 450€
+     * Calcule le prix total pour une période en appliquant les priceMultiplier
+     * du calendrier (tarifs saisonniers/week-end définis par l'owner).
+     * Les nuits sans entrée calendaire sont facturées au prix de base.
+     * Nuits facturées : [startDate, endDate) — le jour de départ n'est pas facturé.
      */
     public BigDecimal calculateTotalPrice(Long propertyId, LocalDate startDate, LocalDate endDate) {
         // Vérifier que la propriété existe
@@ -263,19 +248,31 @@ public class AvailabilityService {
             throw new IllegalArgumentException("Invalid date range: end date must be after start date");
         }
 
-        // Vérifier le séjour minimum (si vous avez implémenté minStayNights)
+        // Vérifier le séjour minimum
         if (numberOfNights < property.getMinStayNights()) {
             throw new RuntimeException(
                     "Minimum stay not satisfied. Minimum nights: " + property.getMinStayNights() +
                             ", requested: " + numberOfNights);
         }
 
-        // Calcul: prix/nuit × nombre de nuits
-        BigDecimal totalPrice = property.getPricePerNight()
-                .multiply(BigDecimal.valueOf(numberOfNights));
+        // Multiplicateurs par date (dernière nuit facturée = endDate - 1)
+        java.util.Map<LocalDate, BigDecimal> multiplierByDate = new java.util.HashMap<>();
+        for (AvailabilityCalendar entry : availabilityRepository.findByPropertyIdAndDateBetween(
+                propertyId, startDate, endDate.minusDays(1))) {
+            if (entry.getPriceMultiplier() != null && entry.getPriceMultiplier().signum() > 0) {
+                multiplierByDate.put(entry.getDate(), entry.getPriceMultiplier());
+            }
+        }
 
-        log.info("💰 Price Quote: property={}, nights={}, price/night={}, total={}",
-                propertyId, numberOfNights, property.getPricePerNight(), totalPrice);
+        BigDecimal totalPrice = BigDecimal.ZERO;
+        for (LocalDate date = startDate; date.isBefore(endDate); date = date.plusDays(1)) {
+            BigDecimal multiplier = multiplierByDate.getOrDefault(date, BigDecimal.ONE);
+            totalPrice = totalPrice.add(property.getPricePerNight().multiply(multiplier));
+        }
+
+        log.info("💰 Price Quote: property={}, nights={}, base/night={}, adjusted multipliers={}, total={}",
+                propertyId, numberOfNights, property.getPricePerNight(),
+                multiplierByDate.size(), totalPrice);
 
         return totalPrice;
     }
@@ -355,7 +352,10 @@ public class AvailabilityService {
             throw new RuntimeException("Cannot book an inactive property");
         }
 
-        validateDates(startDate, endDate);
+        // Dates optionnelles : la confirmation se fait par token
+        if (startDate != null && endDate != null) {
+            validateDates(startDate, endDate);
+        }
 
         // Récupérer les entrées verrouillées avec ce token
         List<AvailabilityCalendar> lockedDates = availabilityRepository.findByPropertyIdAndLockToken(propertyId, lockToken);

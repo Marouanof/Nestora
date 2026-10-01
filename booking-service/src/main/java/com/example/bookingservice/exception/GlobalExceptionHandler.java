@@ -81,6 +81,18 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(InvalidBookingRequestException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidBookingRequest(
+            InvalidBookingRequestException ex, WebRequest request) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidActionException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidAction(
+            InvalidActionException ex, WebRequest request) {
+        return buildResponse(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage(), request);
+    }
+
     @ExceptionHandler(UnauthorizedActionException.class)
     public ResponseEntity<ErrorResponse> handleUnauthorizedAction(
             UnauthorizedActionException ex, WebRequest request) {
@@ -90,7 +102,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IncompleteProfileException.class)
     public ResponseEntity<ErrorResponse> handleIncompleteProfile(
             IncompleteProfileException ex, WebRequest request) {
-        return buildResponse(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage(), request);
+        ErrorResponse response = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.FORBIDDEN.value())
+                .error("Forbidden")
+                .code(ex.getCode())
+                .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .missing(ex.getMissing())
+                .href(ex.getHref())
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
     }
 
     @ExceptionHandler(ServiceIntegrationException.class)

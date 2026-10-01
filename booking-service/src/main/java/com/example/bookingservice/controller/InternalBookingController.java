@@ -20,6 +20,16 @@ public class InternalBookingController {
     @GetMapping("/{id}")
     public Booking getBookingById(@PathVariable Long id) {
         log.info("Internal request for booking ID: {}", id);
-        return bookingRepository.findById(id).orElse(null);
+        return bookingRepository.findById(id)
+                .orElseThrow(() -> new com.example.bookingservice.exception.BookingNotFoundException("Booking not found with id: " + id));
+    }
+
+    // Vérifie qu'un utilisateur a bien séjourné dans une propriété (reviews vérifiées)
+    @GetMapping("/completed/exists")
+    public boolean hasCompletedStay(
+            @org.springframework.web.bind.annotation.RequestParam Long propertyId,
+            @org.springframework.web.bind.annotation.RequestParam Long userId) {
+        return bookingRepository.existsByPropertyIdAndTenantIdAndStatus(
+                propertyId, userId, com.example.bookingservice.enu.BookingStatus.COMPLETED);
     }
 }

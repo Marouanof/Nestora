@@ -40,8 +40,8 @@ public class AIService {
             AIPricingResponse response = restTemplate.getForObject(url, AIPricingResponse.class);
 
             if (response != null) {
-                log.info("AI suggested price for property {}: {} EUR", propertyId, response.getSuggested_price_eth());
-                return response.getSuggested_price_eth();
+                log.info("AI suggested price for property {}: {} MAD", propertyId, response.getSuggested_price_mad());
+                return response.getSuggested_price_mad();
             }
         } catch (Exception e) {
             log.warn("Failed to get AI pricing suggestion for property {}: {}", propertyId, e.getMessage());

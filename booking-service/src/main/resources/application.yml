@@ -1,5 +1,7 @@
 # Database
 spring:
+  profiles:
+    default: local
   application:
     name: booking-service
   datasource:
@@ -37,10 +39,6 @@ management:
     health:
       show-details: always
 
-eureka:
-  client:
-    enabled: false
-
 # Server
 server:
   port: ${SERVER_PORT:8083}
@@ -48,7 +46,7 @@ server:
 # Logging
 logging:
   level:
-    com.realestate.auth: DEBUG
+    com.example.bookingservice: DEBUG
 
 feign:
   client:
@@ -57,10 +55,10 @@ feign:
         connectTimeout: 5000
         readTimeout: 5000
         loggerLevel: basic
-  hystrix:
-    enabled: false
     
 app:
+  gateway:
+    shared-secret: ${GATEWAY_SHARED_SECRET}
   services:
     property-service-url: ${PROPERTY_SERVICE_URL:http://localhost:8082}
     user-service-url: ${USER_SERVICE_URL:http://localhost:8081}

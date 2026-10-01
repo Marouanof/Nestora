@@ -31,6 +31,7 @@ public class UserProfileDTO {
             return kycRectoUrl != null && !kycRectoUrl.trim().isEmpty()
                     && kycVersoUrl != null && !kycVersoUrl.trim().isEmpty();
         }
-        return "APPROVED".equalsIgnoreCase(kycStatus);
+        // user-service émet "VERIFIED" (KycVerificationStatus) ; "APPROVED" gardé pour compat
+        return "VERIFIED".equalsIgnoreCase(kycStatus) || "APPROVED".equalsIgnoreCase(kycStatus);
     }
 }

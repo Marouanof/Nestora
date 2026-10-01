@@ -19,22 +19,6 @@ public class PropertySpecifications {
                 cb.equal(root.get("status"), ListingStatus.ACTIVE);
     }
 
-    // Ville
-    public static Specification<Property> hasCity(String city) {
-        return (root, query, cb) -> {
-            if (!StringUtils.hasText(city)) return null;
-            return cb.equal(root.get("address").get("city"), city);
-        };
-    }
-
-    // Pays
-    public static Specification<Property> hasCountry(String country) {
-        return (root, query, cb) -> {
-            if (!StringUtils.hasText(country)) return null;
-            return cb.equal(root.get("address").get("country"), country);
-        };
-    }
-
     // Type de propriété
     public static Specification<Property> hasPropertyType(PropertyType type) {
         return (root, query, cb) -> {
@@ -91,17 +75,43 @@ public class PropertySpecifications {
         };
     }
 
-    // Équipements (un ou plusieurs)
+    // Équipements : le bien doit posséder TOUS les équipements demandés (insensible à la casse)
     public static Specification<Property> hasAmenities(List<String> amenities) {
         return (root, query, cb) -> {
             if (amenities == null || amenities.isEmpty()) return null;
 
+            query.distinct(true); // les joins multiplient les lignes
+
             List<Predicate> predicates = new ArrayList<>();
             for (String amenity : amenities) {
-                predicates.add(cb.isMember(amenity, root.get("amenities")));
+                if (amenity == null || amenity.isBlank()) continue;
+                predicates.add(cb.equal(
+                        cb.lower(root.join("amenities")),
+                        amenity.trim().toLowerCase()));
             }
 
+            if (predicates.isEmpty()) return null;
             return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    // Géo-recherche : bounding box autour du point (pré-filtre SQL, filtrage exact haversine côté service)
+    public static Specification<Property> withinBoundingBox(Double lat, Double lon, Double radiusKm) {
+        return (root, query, cb) -> {
+            if (lat == null || lon == null || radiusKm == null || radiusKm <= 0) return null;
+
+            var latitude = root.get("address").get("latitude").as(Double.class);
+            var longitude = root.get("address").get("longitude").as(Double.class);
+
+            double latDelta = radiusKm / 111.32;
+            double lonDelta = radiusKm / (111.32 * Math.max(Math.cos(Math.toRadians(lat)), 0.01));
+
+            return cb.and(
+                    cb.isNotNull(latitude),
+                    cb.isNotNull(longitude),
+                    cb.between(latitude, lat - latDelta, lat + latDelta),
+                    cb.between(longitude, lon - lonDelta, lon + lonDelta)
+            );
         };
     }
 

@@ -23,7 +23,7 @@ public class LocalFileStorageService implements FileStorageService {
     private final String gatewayUrl;
 
     public LocalFileStorageService(
-            @Value("${file.upload-dir:uploads}") String uploadDir,
+            @Value("${app.file.upload-dir:uploads}") String uploadDir,
             @Value("${app.gateway.url:http://localhost:8080}") String gatewayUrl) {
         this.fileStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
         this.gatewayUrl = gatewayUrl;

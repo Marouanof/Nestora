@@ -56,12 +56,13 @@ public class ReviewController {
         return ResponseEntity.ok(stats);
     }
 
-    @DeleteMapping("/{reviewId}")
+    @DeleteMapping("/{reviewId:\\d+}")
     public ResponseEntity<?> deleteReview(
             @RequestHeader("X-Auth-User-Id") Long userId,
+            @PathVariable Long propertyId,
             @PathVariable Long reviewId) {
 
-        reviewService.deleteReview(reviewId, userId);
+        reviewService.deleteReviewForProperty(reviewId, userId, propertyId);
         return ResponseEntity.ok("Review deleted successfully");
     }
 

@@ -57,6 +57,7 @@ public class BookingPaymentStatusListener {
         if (event.isSuccess()) {
             try {
                 propertyServiceClient.confirmReservation(
+                        booking.getTenantId(),
                         booking.getPropertyId(),
                         booking.getCheckIn(),
                         booking.getCheckOut(),

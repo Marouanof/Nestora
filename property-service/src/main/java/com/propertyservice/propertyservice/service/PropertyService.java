@@ -180,8 +180,11 @@ public class PropertyService {
             throw new RuntimeException("Unauthorized to delete this property");
         }
 
-        propertyRepository.delete(property);
-        log.info("Property deleted with ID: {}", id);
+        // Soft delete : conserve l'historique des réservations et reviews
+        property.setDeletedAt(java.time.LocalDateTime.now());
+        property.setStatus(ListingStatus.REJECTED);
+        propertyRepository.save(property);
+        log.info("Property soft-deleted with ID: {}", id);
     }
 
     @Transactional

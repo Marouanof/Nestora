@@ -42,6 +42,18 @@ public class SearchRequest {
     // ✅ Options
     private Boolean instantBookable;
 
+    // 🏊 Équipements requis (le bien doit tous les avoir)
+    private List<String> amenities;
+
+    // 📍 Géo-recherche : rayon autour d'un point
+    private Double latitude;
+    private Double longitude;
+    private Double radiusKm; // défaut : 50 km
+
+    public boolean hasGeoSearch() {
+        return latitude != null && longitude != null;
+    }
+
     // 📋 Pagination (déjà géré par Spring)
 
     // Méthode utilitaire

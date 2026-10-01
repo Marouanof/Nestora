@@ -11,6 +11,7 @@ public class RabbitConfig {
     public static final String BOOKING_PAYMENT_STATUS_QUEUE = "q.booking-payment-status";
     public static final String PAYMENT_SUCCESS_ROUTING_KEY = "PAYMENT_SUCCESS";
     public static final String PAYMENT_FAILED_ROUTING_KEY = "PAYMENT_FAILED";
+    public static final String PAYMENT_INITIATED_ROUTING_KEY = "PAYMENT_INITIATED";
     public static final String PAYMENT_COMPLETED_ROUTING_KEY = "PAYMENT_COMPLETED";
     public static final String BOOKING_CANCELLED_ROUTING_KEY = "BOOKING_CANCELLED";
 
@@ -46,5 +47,13 @@ public class RabbitConfig {
                 .bind(bookingPaymentStatusQueue())
                 .to(bookingExchange())
                 .with(PAYMENT_COMPLETED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding bookingPaymentInitiatedBinding() {
+        return BindingBuilder
+                .bind(bookingPaymentStatusQueue())
+                .to(bookingExchange())
+                .with(PAYMENT_INITIATED_ROUTING_KEY);
     }
 }

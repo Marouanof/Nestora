@@ -21,14 +21,14 @@ public class UserProfileDTO {
     private Boolean kycVerified;
     
     public boolean isKycComplete() {
-        boolean hasPhoto = photoUrl != null && !photoUrl.trim().isEmpty();
-        if (!hasPhoto) {
-            return false;
+        if (Boolean.TRUE.equals(kycVerified)) {
+            return true;
         }
         if (kycStatus == null) {
             return kycRectoUrl != null && !kycRectoUrl.trim().isEmpty()
                     && kycVersoUrl != null && !kycVersoUrl.trim().isEmpty();
         }
-        return "APPROVED".equalsIgnoreCase(kycStatus);
+        // user-service émet "VERIFIED" (KycVerificationStatus) ; "APPROVED" gardé pour compat
+        return "VERIFIED".equalsIgnoreCase(kycStatus) || "APPROVED".equalsIgnoreCase(kycStatus);
     }
 }

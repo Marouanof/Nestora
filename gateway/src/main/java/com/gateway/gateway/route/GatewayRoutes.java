@@ -19,11 +19,13 @@ public class GatewayRoutes {
     @Value("${app.services.booking-service.uri:http://localhost:8083}")
     private String bookingServiceUri;
 
-    @Value("${app.services.payment-service.uri:http://localhost:8084}")
-    private String paymentServiceUri;
+
 
     @Value("${app.services.notification-service.uri:http://localhost:8086}")
     private String notificationServiceUri;
+
+    @Value("${app.services.payment-service.uri:http://localhost:8084}")
+    private String paymentServiceUri;
 
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder, JwtAuthenticationFilter jwtAuthenticationFilter) {
@@ -58,6 +60,11 @@ public class GatewayRoutes {
                         .filters(f -> f.filter(jwtAuthenticationFilter.apply(new JwtAuthenticationFilter.Config())))
                         .uri(propertyServiceUri)
                 )
+                .route("booking_admin", r -> r
+                        .path("/api/admin/bookings/**")
+                        .filters(f -> f.filter(jwtAuthenticationFilter.apply(new JwtAuthenticationFilter.Config())))
+                        .uri(bookingServiceUri)
+                )
                 .route("user_service_protected", r -> r
                         .path("/api/admin/**")
                         .filters(f -> f
@@ -66,6 +73,19 @@ public class GatewayRoutes {
                 )
                 .route("user_service_public_info", r -> r
                         .path("/api/users/{userId:\\d+}", "/api/users/{userId:\\d+}/full")
+                        .uri(userServiceUri)
+                )
+                .route("user_reviews_public", r -> r
+                        .path("/api/users/*/reviews", "/api/users/*/reviews/summary")
+                        .and()
+                        .method("GET")
+                        .uri(userServiceUri)
+                )
+                .route("user_reviews_protected", r -> r
+                        .path("/api/users/*/reviews")
+                        .and()
+                        .method("POST")
+                        .filters(f -> f.filter(jwtAuthenticationFilter.apply(new JwtAuthenticationFilter.Config())))
                         .uri(userServiceUri)
                 )
                 .route("user_service_me", r -> r
@@ -119,23 +139,24 @@ public class GatewayRoutes {
                         .filters(f -> f.filter(jwtAuthenticationFilter.apply(new JwtAuthenticationFilter.Config())))
                         .uri(bookingServiceUri)
                 )
-                .route("payment_service", r -> r
-                        .path("/api/payments/**")
-                        .filters(f -> f.filter(jwtAuthenticationFilter.apply(new JwtAuthenticationFilter.Config())))
-                        .uri(paymentServiceUri)
-                )
-                .route("payment_webhook_public", r -> r
-                        .path("/api/webhooks/payment/**")
-                        .uri(paymentServiceUri)
-                )
+
                 .route("notification_service", r -> r
                         .path("/api/notifications/**")
                         .filters(f -> f.filter(jwtAuthenticationFilter.apply(new JwtAuthenticationFilter.Config())))
                         .uri(notificationServiceUri)
                 )
+                .route("payment_service", r -> r
+                        .path("/api/payments/**")
+                        .filters(f -> f.filter(jwtAuthenticationFilter.apply(new JwtAuthenticationFilter.Config())))
+                        .uri(paymentServiceUri)
+                )
+                .route("payment_webhook", r -> r
+                        .path("/api/webhook/payment")
+                        .uri(paymentServiceUri)
+                )
                 .route("analytics_service", r -> r
                         .path("/api/analytics/**")
-                        //.filters(f -> f.filter(jwtAuthenticationFilter.apply(new JwtAuthenticationFilter.Config()))) // Uncomment to secure
+                        .filters(f -> f.filter(jwtAuthenticationFilter.apply(new JwtAuthenticationFilter.Config())))
                         .uri(propertyServiceUri)
                 )
                 // ROUTES INTERNES (Service-to-Service)
@@ -156,7 +177,7 @@ public class GatewayRoutes {
                         .uri(userServiceUri)
                 )
                 .route("user_service_files", r -> r
-                        .path("/files/users/**", "/files/kyc/**", "/files/kyc_recto/**", "/files/kyc_verso/**","/files/avatar/**")
+                        .path("/files/users/**", "/files/kyc/**", "/files/kyc_recto/**", "/files/kyc_verso/**", "/files/kyc_selfie/**", "/files/avatar/**")
                         .uri(userServiceUri)
                 )
                 .route("property_service_files", r -> r

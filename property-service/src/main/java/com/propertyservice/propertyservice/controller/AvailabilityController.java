@@ -95,21 +95,6 @@ public class AvailabilityController {
         }
     }
 
-    @PostMapping("/confirm/{lockToken}")
-    public ResponseEntity<?> confirmReservation(
-            @PathVariable Long propertyId,
-            @PathVariable String lockToken) {
-
-        try {
-            availabilityService.confirmReservation(propertyId, lockToken);
-            return ResponseEntity.ok("Reservation confirmed successfully");
-
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Error confirming reservation: " + e.getMessage());
-        }
-    }
-
     @PostMapping("/release/{lockToken}")
     public ResponseEntity<?> releaseDates(
             @PathVariable Long propertyId,
@@ -143,7 +128,7 @@ public class AvailabilityController {
             response.put("endDate", endDate);
             response.put("numberOfNights", numberOfNights);
             response.put("totalPrice", totalPrice);
-            response.put("currency", "EUR");
+            response.put("currency", "MAD");
 
             return ResponseEntity.ok(response);
 

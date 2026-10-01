@@ -21,7 +21,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -49,13 +48,23 @@ public class BookingService {
         // 2. Valider la propriété (basique: capacité, dates min/max)
         validatePropertyForBooking(property, request);
 
-        // 3. Calculer le montant total manuellement pour garantir l'intégrité (Backend-Calculated)
+        // 3. Calculer le montant total via property-service (priceMultiplier saisonnier), fallback prix de base
         long numberOfNights = ChronoUnit.DAYS.between(request.getCheckIn(), request.getCheckOut());
         if (numberOfNights <= 0) {
             throw new IllegalArgumentException("Invalid date range: check-out must be after check-in");
         }
 
-        BigDecimal totalPrice = property.getPricePerNight().multiply(BigDecimal.valueOf(numberOfNights));
+        BigDecimal totalPrice;
+        try {
+            java.util.Map<String, Object> priceQuote = propertyServiceClient.getPrice(
+                    request.getPropertyId(), request.getCheckIn(), request.getCheckOut());
+            Object totalObj = priceQuote != null ? priceQuote.get("totalPrice") : null;
+            totalPrice = totalObj != null ? new BigDecimal(totalObj.toString()) : null;
+            if (totalPrice == null || totalPrice.signum() <= 0) throw new IllegalStateException("empty price quote");
+        } catch (Exception e) {
+            log.warn("Price quote via property-service echoue, fallback prix de base: {}", e.getMessage());
+            totalPrice = property.getPricePerNight().multiply(BigDecimal.valueOf(numberOfNights));
+        }
         BigDecimal securityDeposit = property.getSecurityDeposit();
 
         // 3.5 Vérifier les conflits de dates locaux avant de tenter de verrouiller
@@ -148,6 +157,7 @@ public class BookingService {
         // Verrouiller définitivement les dates dans Property-Service
         try {
             propertyServiceClient.confirmReservation(
+                    userId,
                     booking.getPropertyId(),
                     booking.getCheckIn(),
                     booking.getCheckOut(),
@@ -182,10 +192,11 @@ public class BookingService {
         // Validation selon le statut
         validateCancellation(booking, userId);
 
-        // Si le booking était confirmé, libérer les dates
-        if (booking.getStatus() == BookingStatus.CONFIRMED) {
+        // Si le booking était confirmé ou en attente de paiement, libérer les dates (TTL 15min)
+        if (booking.getStatus() == BookingStatus.CONFIRMED
+                || booking.getStatus() == BookingStatus.PENDING_PAYMENT) {
             try {
-                propertyServiceClient.releaseDates(booking.getPropertyId(), booking.getLockToken());
+                propertyServiceClient.releaseDates(userId, booking.getPropertyId(), booking.getLockToken());
                 log.info("Property dates released for cancelled booking: {}", bookingId);
             } catch (Exception e) {
                 log.warn("Failed to release property dates for booking: {}", bookingId, e);
@@ -308,10 +319,6 @@ public class BookingService {
             }
         }
 
-        /* MVP: si la propriété n'est pas instant bookable, on refuse (pas de workflow d'approbation owner dans ce service)
-        if (property.getInstantBookable() != null && !property.getInstantBookable()) {
-            throw new InvalidBookingRequestException("Property requires owner approval (not supported in MVP)");
-        } */
     }
 
     private void checkForBookingConflicts(Long propertyId, LocalDate checkIn, LocalDate checkOut) {
@@ -451,8 +458,23 @@ public class BookingService {
             log.info("👤 User profile found: email={}", user.getEmail());
 
             if (!user.isKycComplete()) {
-                    log.warn("❌ KYC incomplete for user {}", userId);
-                    throw new IncompleteProfileException("Votre profil est incomplet (photo ou documents KYC manquants). Veuillez compléter votre profil.");
+                    java.util.List<String> missing = new java.util.ArrayList<>();
+                    if (user.getPhotoUrl() == null || user.getPhotoUrl().isBlank()) {
+                        missing.add("PHOTO");
+                    }
+                    if (user.getKycRectoUrl() == null || user.getKycRectoUrl().isBlank()) {
+                        missing.add("KYC_RECTO");
+                    }
+                    if (user.getKycVersoUrl() == null || user.getKycVersoUrl().isBlank()) {
+                        missing.add("KYC_VERSO");
+                    }
+                    if (Boolean.FALSE.equals(user.getKycVerified())) {
+                        missing.add("KYC_PENDING");
+                    }
+                    log.warn("❌ KYC incomplete for user {} missing={}", userId, missing);
+                    throw new IncompleteProfileException(
+                            "Votre profil est incomplet (photo ou documents KYC manquants). Veuillez compléter votre profil.",
+                            missing, "/profile?missing=KYC");
                 }
 
                 log.info("✅ User {} validated for booking (KYC OK)", userId);

@@ -14,6 +14,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "properties")
+@org.hibernate.annotations.SQLRestriction("deleted_at IS NULL")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -100,4 +101,9 @@ public class Property {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    // Soft delete : les biens supprimés restent en base (historique bookings/reviews)
+    // mais sont exclus de toutes les requêtes via @SQLRestriction
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 }

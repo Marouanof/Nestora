@@ -10,5 +10,6 @@ public enum PropertyType {
     TOWNHOUSE,
     BUNGALOW,
     CABIN,
-    CASTLE
+    CASTLE,
+    ROOM
 }

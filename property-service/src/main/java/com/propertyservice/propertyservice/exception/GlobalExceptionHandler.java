@@ -26,6 +26,16 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.FORBIDDEN, "Incomplete Profile", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(ReviewNotAllowedException.class)
+    public ResponseEntity<ErrorResponse> handleReviewNotAllowed(ReviewNotAllowedException ex, WebRequest request) {
+        return buildResponse(HttpStatus.FORBIDDEN, "Review Not Allowed", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(ReviewNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleReviewNotFound(ReviewNotFoundException ex, WebRequest request) {
+        return buildResponse(HttpStatus.NOT_FOUND, "Review Not Found", ex.getMessage(), request);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex, WebRequest request) {
         Map<String, String> errors = new HashMap<>();

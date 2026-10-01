@@ -1,5 +1,7 @@
 # Database
 spring:
+  profiles:
+    default: local
   application:
     name: property-service
   datasource:
@@ -16,6 +18,13 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # Uploads (images de biens) - défaut Spring = 1MB, trop petit
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: ${MAX_FILE_SIZE:10MB}
+      max-request-size: ${MAX_REQUEST_SIZE:50MB}
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
     port: ${RABBIT_PORT:5672}
@@ -31,10 +40,6 @@ management:
     health:
       show-details: always
 
-eureka:
-  client:
-    enabled: false
-
 # Server
 server:
   port: ${SERVER_PORT:8082}
@@ -42,26 +47,27 @@ server:
 # Logging
 logging:
   level:
-    com.realestate.auth: DEBUG
+    com.propertyservice.propertyservice: DEBUG
 
 app:
   gateway:
     url: ${APP_GATEWAY_URL:http://localhost:8080}
+    shared-secret: ${GATEWAY_SHARED_SECRET}
   file:
     upload-dir: ${FILE_UPLOAD_DIR:uploads}
-  search:
-    default-page-size : 20
-    max-page-size : 100
-    popular-destinations-limit : 10
-    similar-properties-limit : 6
   services:
     user-service-url: ${USER_SERVICE_URL:http://localhost:8081}
+    booking-service-url: ${BOOKING_SERVICE_URL:http://localhost:8083}
+
+ai:
+  service:
+    url: ${AI_SERVICE_URL:http://localhost:8000}
 
 aws:
   s3:
     bucket-name: bucket-block-lsi
     region: eu-west-3
-  access-key: ${AWS_ACCESS_KEY}
-  secret-key: ${AWS_SECRET_KEY}
+  access-key: ${AWS_ACCESS_KEY:}
+  secret-key: ${AWS_SECRET_KEY:}
 storage:
-  type: s3
+  type: local

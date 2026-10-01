@@ -4,6 +4,7 @@ import com.example.bookingservice.dto.BookingResponse;
 import com.example.bookingservice.dto.CreateBookingRequest;
 import com.example.bookingservice.dto.OwnerStatsResponse;
 import com.example.bookingservice.enu.BookingStatus;
+import com.example.bookingservice.service.AdminBookingService;
 import com.example.bookingservice.service.BookingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import java.util.Map;
 public class BookingController {
 
     private final BookingService bookingService;
+    private final AdminBookingService adminBookingService;
 
     @PostMapping
     public ResponseEntity<BookingResponse> createBooking(
@@ -145,15 +147,6 @@ public class BookingController {
 
         log.info("Get booking stats for user: {}", userId);
 
-        // TODO: Implémenter les statistiques dans BookingService
-        Map<String, Object> stats = Map.of(
-                "totalBookings", 0,
-                "pendingBookings", 0,
-                "confirmedBookings", 0,
-                "cancelledBookings", 0,
-                "revenue", 0.0
-        );
-
-        return ResponseEntity.ok(stats);
+        return ResponseEntity.ok(adminBookingService.getBookingStats());
     }
 }

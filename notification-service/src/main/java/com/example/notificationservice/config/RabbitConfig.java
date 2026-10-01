@@ -72,6 +72,7 @@ public class RabbitConfig {
 
         // Compatibilité avec les classes existantes
         idClassMapping.put("com.example.bookingservice.messaging.BookingPaymentEvent", com.example.notificationservice.dto.BookingPaymentEvent.class);
+        idClassMapping.put("com.example.paymentservice.messaging.BookingPaymentEvent", com.example.notificationservice.dto.BookingPaymentEvent.class);
         idClassMapping.put("com.example.notificationservice.dto.BookingPaymentEvent", com.example.notificationservice.dto.BookingPaymentEvent.class);
         idClassMapping.put("com.example.notificationservice.dto.PropertyApprovalEvent", com.example.notificationservice.dto.PropertyApprovalEvent.class);
         idClassMapping.put("com.example.notificationservice.dto.BookingCancellationEvent", com.example.notificationservice.dto.BookingCancellationEvent.class);

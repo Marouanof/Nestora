@@ -36,6 +36,7 @@ public class PropertyController {
     private final SearchService searchService;
     private final AIService aiService;
     private final com.propertyservice.propertyservice.service.FileStorageService fileStorageService;
+    private final com.propertyservice.propertyservice.service.AvailabilityService availabilityService;
 
     @PostMapping
     public ResponseEntity<?> createProperty(
@@ -118,18 +119,19 @@ public class PropertyController {
             @RequestParam(defaultValue = "createdAt") String sort,
             @RequestParam(defaultValue = "desc") String direction) {
 
-        // SIMPLIFIER : Ne pas utiliser request.getSortBy() pour l'instant
         Sort.Direction sortDirection = direction.equalsIgnoreCase("asc")
                 ? Sort.Direction.ASC : Sort.Direction.DESC;
 
-        // Choisir le champ de tri
-        String sortField = sort;
-        if ("price".equals(sort)) {
-            sortField = "pricePerNight";
-        }
+        // Champ de tri blanchi (un champ inconnu provoquait une 500) + pagination bornée
+        String sortField = switch (sort) {
+            case "price", "pricePerNight" -> "pricePerNight";
+            case "title" -> "title";
+            case "maxGuests" -> "maxGuests";
+            default -> "createdAt";
+        };
 
         Sort sortObj = Sort.by(sortDirection, sortField);
-        Pageable pageable = PageRequest.of(page, size, sortObj);
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.min(100, Math.max(1, size)), sortObj);
 
         SearchResponse response = searchService.searchProperties(request, pageable);
         return ResponseEntity.ok(response);
@@ -178,10 +180,20 @@ public class PropertyController {
                     .body(Map.of("error", "Property is not available for booking"));
         }
 
-        // Calculer le prix via AvailabilityService
         long numberOfNights = ChronoUnit.DAYS.between(startDate, endDate);
-        BigDecimal totalPrice = property.getPricePerNight()
-                .multiply(BigDecimal.valueOf(numberOfNights));
+
+        // Calculer le prix réel en appliquant les priceMultiplier du calendrier
+        BigDecimal totalPrice;
+        try {
+            totalPrice = availabilityService.calculateTotalPrice(id, startDate, endDate);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", e.getMessage()));
+        }
+
+        // Prix moyen/nuit réellement facturé
+        BigDecimal averageNightlyPrice = totalPrice
+                .divide(BigDecimal.valueOf(numberOfNights), 2, java.math.RoundingMode.HALF_UP);
 
         // AI Integration: Suggest price for the start date
         BigDecimal suggestedPrice = aiService.getSuggestedPrice(id, startDate);
@@ -192,14 +204,16 @@ public class PropertyController {
         response.put("propertyTitle", property.getTitle());
         response.put("ownerId", property.getOwnerId());
         response.put("pricePerNight", property.getPricePerNight());
+        response.put("averageNightlyPrice", averageNightlyPrice); // prix moyen après multiplicateurs
         response.put("suggestedPricePerNight", suggestedPrice); // AI ADDITION
         response.put("startDate", startDate);
         response.put("endDate", endDate);
         response.put("numberOfNights", numberOfNights);
         response.put("totalPrice", totalPrice);
-        response.put("currency", "EUR");
+        response.put("currency", "MAD");
         response.put("minStayNights", property.getMinStayNights());
         response.put("cancellationPolicyDays", property.getCancellationPolicyDays());
+        response.put("securityDeposit", property.getSecurityDeposit());
 
         return ResponseEntity.ok(response);
     }

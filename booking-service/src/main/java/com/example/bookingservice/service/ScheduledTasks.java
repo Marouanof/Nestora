@@ -37,8 +37,8 @@ public class ScheduledTasks {
 
             for (Booking booking : expiredBookings) {
                 try {
-                    // Libérer les dates dans Property-Service
-                    propertyServiceClient.releaseDates(booking.getPropertyId(), booking.getLockToken());
+                    // Libérer les dates dans Property-Service (contexte système : tenant d'origine)
+                    propertyServiceClient.releaseDates(booking.getTenantId(), booking.getPropertyId(), booking.getLockToken());
 
                     // Marquer comme annulé
                     booking.setStatus(BookingStatus.CANCELLED);
