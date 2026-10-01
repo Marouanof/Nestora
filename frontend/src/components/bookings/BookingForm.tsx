@@ -1,13 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Star, Lock, ShieldCheck, ArrowRight } from 'lucide-react';
-import { useCreateBooking } from '@/hooks/bookings/useCreateBooking';
-import { BookingCalendar } from './BookingCalendar';
-import { authStore } from '@/store/auth.store';
+import { Star, Lock, ShieldCheck, ArrowRight, AlertTriangle } from 'lucide-react';
+import { BookingService } from '@/services/booking.service';
+import { BookingCalendar } from './BookingCalendar';import { authStore } from '@/store/auth.store';
 import { toast } from 'sonner';
 import { formatMad } from '@/lib/utils';
 import type { Property } from '@/types/property.types';
@@ -23,7 +22,8 @@ export const BookingForm = ({ property, averageRating, reviewCount, unavailableD
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [guests, setGuests] = useState(1);
-  const { createBooking, loading } = useCreateBooking();
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<{ message: string; href?: string } | null>(null);
   const navigate = useNavigate();
   const { user } = authStore();
 
@@ -56,8 +56,18 @@ export const BookingForm = ({ property, averageRating, reviewCount, unavailableD
       numberOfGuests: guests,
     };
 
-    const result = await createBooking(bookingData);
+    const result = await BookingService.createBooking(bookingData).catch((err: unknown) => {
+      const data = (err as { response?: { data?: { message?: string; href?: string } } })
+        ?.response?.data;
+      setSubmitError({
+        message: data?.message || 'Failed to create booking',
+        href: data?.href,
+      });
+      return null;
+    });
+    setSubmitting(false);
     if (result) {
+      setSubmitError(null);
       toast.success('Booking created successfully!');
       navigate('/bookings');
     }
@@ -207,8 +217,24 @@ export const BookingForm = ({ property, averageRating, reviewCount, unavailableD
 
       {/* Book Button */}
       <form onSubmit={handleSubmit}>
-        <Button type="submit" size="lg" disabled={loading || !checkIn || !checkOut} className="h-12 w-full rounded-full text-base font-semibold transition-all duration-300 hover:-translate-y-px hover:shadow-[0_16px_32px_-16px_rgba(81,70,229,0.55)] disabled:hover:translate-y-0 disabled:hover:shadow-none">
-          {loading ? 'Creating booking…' : property.instantBookable ? 'Reserve' : 'Request to book'}
+        {submitError && (
+          <div className="mb-4 flex items-start gap-2.5 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-left">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            <div className="text-sm">
+              <p className="font-medium text-destructive">{submitError.message}</p>
+              {submitError.href && (
+                <Link
+                  to={submitError.href}
+                  className="mt-1.5 inline-block font-semibold text-primary underline underline-offset-4"
+                >
+                  Compléter mon profil
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+        <Button type="submit" size="lg" disabled={submitting || !checkIn || !checkOut} className="h-12 w-full rounded-full text-base font-semibold transition-all duration-300 hover:-translate-y-px hover:shadow-[0_16px_32px_-16px_rgba(81,70,229,0.55)] disabled:hover:translate-y-0 disabled:hover:shadow-none">
+          {submitting ? 'Creating booking…' : property.instantBookable ? 'Reserve' : 'Request to book'}
         </Button>
 
         {!property.instantBookable ? (
