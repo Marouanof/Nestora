@@ -141,22 +141,27 @@ export const PropertyListPage: React.FC = () => {
                 </Button>
 
                 <div className="flex items-center gap-1.5">
-                  {Array.from({ length: Math.min(5, data.totalPages || 1) }).map((_, i) => {
-                    const pageNum = Math.max(0, (data.number || 0) - 2 + i);
-                    if (pageNum >= (data.totalPages || 0)) return null;
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={pageNum === page ? 'default' : 'ghost'}
-                        size="icon"
-                        onClick={() => handlePageChange(pageNum)}
-                        disabled={loading}
-                        aria-current={pageNum === page ? 'page' : undefined}
-                      >
-                        {pageNum + 1}
-                      </Button>
-                    );
-                  })}
+                  {(() => {
+                    const total = data.totalPages || 0;
+                    const current = data.number ?? page;
+                    const visible = Math.min(5, total);
+                    const start = Math.min(Math.max(0, current - 2), Math.max(0, total - visible));
+                    return Array.from({ length: visible }).map((_, i) => {
+                      const pageNum = start + i;
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={pageNum === page ? 'default' : 'ghost'}
+                          size="icon"
+                          onClick={() => handlePageChange(pageNum)}
+                          disabled={loading}
+                          aria-current={pageNum === page ? 'page' : undefined}
+                        >
+                          {pageNum + 1}
+                        </Button>
+                      );
+                    });
+                  })()}
                 </div>
 
                 <Button
