@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { authStore } from '@/store/auth.store';
@@ -24,6 +25,7 @@ function AppLayout() {
         <Outlet />
       </main>
       {!isFullBleed && <Footer />}
+      <Toaster richColors position="top-center" />
     </div>
   );
 }

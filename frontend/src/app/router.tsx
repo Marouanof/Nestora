@@ -242,7 +242,14 @@ export const router = createBrowserRouter([
       { path: "properties/:id/edit", element: <EditPropertyPage /> },
       { path: "properties/:id/photos", element: <ManagePhotosPage /> },
       { path: "properties/:id/availability", element: <AvailabilityManagementPage /> },
-      { path: "properties/:id/review", element: <SubmitReviewPage /> },
+      {
+        path: "properties/:id/review",
+        element: (
+          <RequireRole roles={["ROLE_TENANT", "ROLE_OWNER", "ROLE_ADMIN"]}>
+            <SubmitReviewPage />
+          </RequireRole>
+        ),
+      },
       {
         path: "bookings",
         element: (
