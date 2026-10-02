@@ -11,8 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { ArrowLeft, Save, UserCheck, UserX, Shield, LogOut, CheckCircle2, XCircle, ShieldCheck } from 'lucide-react';
-import { useUser, useUpdateUserProfile, useEnableUser, useDisableUser, useChangeRole, useForceLogout, useApproveKyc, useRejectKyc } from '@/hooks/admin/useAdminUsers';
-import { getPrimaryRole, isUserActive } from '@/services/adminUser.service';
+import { useUser, useUpdateUserProfile, useEnableUser,
+useDisableUser, useChangeRole, useForceLogout, useApproveKyc, useRejectKyc } from '@/hooks/admin/useAdminUsers';
+import { authStore } from '@/store/auth.store';
+import { getPrimaryRole, getUserRoles, isUserActive } from
+'@/services/adminUser.service';
 
 export const AdminUserDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +23,8 @@ export const AdminUserDetails: React.FC = () => {
   const userId = id ? parseInt(id) : null;
 
   const { data: user, isLoading, error } = useUser(userId!);
+  const { user: currentUser } = authStore();
+  const isSelf = !!user?.email && !!currentUser?.email && user.email === currentUser.email;
   const updateProfileMutation = useUpdateUserProfile();
   const enableUserMutation = useEnableUser();
   const disableUserMutation = useDisableUser();
@@ -211,9 +216,13 @@ export const AdminUserDetails: React.FC = () => {
           <div>
             <h1 className="text-3xl font-bold mb-2">{user.firstName} {user.lastName}</h1>
             <div className="flex items-center gap-4 text-muted-foreground">
-              <Badge variant={getRoleBadgeVariant(getPrimaryRole(user))}>
-                {getRoleDisplayName(getPrimaryRole(user))}
-              </Badge>
+              <div className="flex flex-wrap gap-1">
+                {getUserRoles(user).map((r) => (
+                  <Badge key={r} variant={getRoleBadgeVariant(r)}>
+                    {getRoleDisplayName(r)}
+                  </Badge>
+                ))}
+              </div>
               <Badge variant={isUserActive(user) ? 'default' : 'secondary'}>
                 {isUserActive(user) ? 'Active' : 'Inactive'}
               </Badge>
@@ -225,21 +234,27 @@ export const AdminUserDetails: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            {isUserActive(user) ? (
-              <Button variant="outline" onClick={handleDisableUser}>
-                <UserX className="w-4 h-4 mr-2" />
-                Disable
-              </Button>
+            {isSelf ? (
+              <Badge variant="secondary">C'est vous</Badge>
             ) : (
-              <Button variant="outline" onClick={handleEnableUser}>
-                <UserCheck className="w-4 h-4 mr-2" />
-                Enable
-              </Button>
+              <>
+                {isUserActive(user) ? (
+                  <Button variant="outline" onClick={handleDisableUser}>
+                    <UserX className="w-4 h-4 mr-2" />
+                    Disable
+                  </Button>
+                ) : (
+                  <Button variant="outline" onClick={handleEnableUser}>
+                    <UserCheck className="w-4 h-4 mr-2" />
+                    Enable
+                  </Button>
+                )}
+                <Button variant="outline" onClick={handleForceLogout}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Force Logout
+                </Button>
+              </>
             )}
-            <Button variant="outline" onClick={handleForceLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Force Logout
-            </Button>
           </div>
         </div>
       </div>
@@ -504,25 +519,29 @@ export const AdminUserDetails: React.FC = () => {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  const current = getPrimaryRole(user);
-                  handleChangeRole(current === 'ROLE_ADMIN' ? 'ROLE_OWNER' : current === 'ROLE_OWNER' ? 'ROLE_TENANT' : 'ROLE_OWNER');
-                }}
-              >
-                <Shield className="w-4 h-4 mr-2" />
-                Change Role
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleForceLogout}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Force Logout
-              </Button>
+              {!isSelf && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      const current = getPrimaryRole(user);
+                      handleChangeRole(current === 'ROLE_ADMIN' ? 'ROLE_OWNER' : current === 'ROLE_OWNER' ? 'ROLE_TENANT' : 'ROLE_OWNER');
+                    }}
+                  >
+                    <Shield className="w-4 h-4 mr-2" />
+                    Change Role
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleForceLogout}
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Force Logout
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

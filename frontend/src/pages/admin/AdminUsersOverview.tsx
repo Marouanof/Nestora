@@ -47,12 +47,16 @@ import {
   XCircle
 } from 'lucide-react';
 import { useUsersList, useUserSearch, useUserFilters, useEnableUser, useDisableUser, useChangeRole, useForceLogout, useDeleteUser, useApproveKyc, useRejectKyc } from '@/hooks/admin/useAdminUsers';
+import { authStore } from '@/store/auth.store';
 import { COUNTRIES_LIST, COUNTRIES_AND_CITIES } from '@/types/location.constants';
 import type { AdminUser } from '@/services/adminUser.service';
 import { getUserRoles, isUserActive } from '@/services/adminUser.service';
 
 export const AdminUsersOverview: React.FC = () => {
   const navigate = useNavigate();
+  const { user: currentUser } = authStore();
+  const isSelf = (u: AdminUser) =>
+    !!u?.email && !!currentUser?.email && u.email === currentUser.email;
   const [page, setPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -359,7 +363,14 @@ export const AdminUsersOverview: React.FC = () => {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium">{user.firstName} {user.lastName}</p>
+                            <p className="font-medium">
+                              {user.firstName} {user.lastName}
+                              {isSelf(user) && (
+                                <Badge variant="secondary" className="ml-2">
+                                  vous
+                                </Badge>
+                              )}
+                            </p>
                             <p className="text-sm text-muted-foreground">{user.email}</p>
                           </div>
                         </div>
@@ -401,21 +412,25 @@ export const AdminUsersOverview: React.FC = () => {
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            {isUserActive(user) ? (
-                              <DropdownMenuItem onClick={() => handleDisableUser(user.id)}>
-                                <UserX className="h-4 w-4 mr-2" />
-                                Disable User
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem onClick={() => handleEnableUser(user.id)}>
-                                <UserCheck className="h-4 w-4 mr-2" />
-                                Enable User
-                              </DropdownMenuItem>
+                            {!isSelf(user) && (
+                              <>
+                                {isUserActive(user) ? (
+                                  <DropdownMenuItem onClick={() => handleDisableUser(user.id)}>
+                                    <UserX className="h-4 w-4 mr-2" />
+                                    Disable User
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem onClick={() => handleEnableUser(user.id)}>
+                                    <UserCheck className="h-4 w-4 mr-2" />
+                                    Enable User
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => setRoleChangeDialog({ open: true, user, newRole: '' })}>
+                                  <Shield className="h-4 w-4 mr-2" />
+                                  Change Role
+                                </DropdownMenuItem>
+                              </>
                             )}
-                            <DropdownMenuItem onClick={() => setRoleChangeDialog({ open: true, user, newRole: '' })}>
-                              <Shield className="h-4 w-4 mr-2" />
-                              Change Role
-                            </DropdownMenuItem>
                             {isKycPending(user) && (
                               <>
                                 <DropdownMenuItem onClick={() => setKycDialog({ mode: 'approve', user, reason: '' })}>
@@ -428,17 +443,21 @@ export const AdminUsersOverview: React.FC = () => {
                                 </DropdownMenuItem>
                               </>
                             )}
-                            <DropdownMenuItem onClick={() => handleForceLogout(user.id)}>
-                              <LogOut className="h-4 w-4 mr-2" />
-                              Force Logout
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => setDeleteDialog({ open: true, user })}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete User
-                            </DropdownMenuItem>
+                            {!isSelf(user) && (
+                              <>
+                                <DropdownMenuItem onClick={() => handleForceLogout(user.id)}>
+                                  <LogOut className="h-4 w-4 mr-2" />
+                                  Force Logout
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => setDeleteDialog({ open: true, user })}
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete User
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

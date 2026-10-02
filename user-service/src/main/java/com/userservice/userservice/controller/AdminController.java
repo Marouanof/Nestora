@@ -4,6 +4,7 @@ import com.userservice.userservice.dto.CreateUserRequest;
 import com.userservice.userservice.dto.UpdateProfileRequest;
 import com.userservice.userservice.dto.UserResponse;
 import com.userservice.userservice.enums.RoleName;
+import com.userservice.userservice.exception.InvalidActionException;
 import com.userservice.userservice.kyc.enums.KycVerificationStatus;
 import com.userservice.userservice.kyc.service.KycService;
 import com.userservice.userservice.service.AdminService;
@@ -27,6 +28,21 @@ public class AdminController {
     private final AdminService adminService;
     private final AuthService authService; // Ajouté pour la méthode forceLogoutUser
     private final KycService kycService;
+
+    /** Un admin ne peut pas se désactiver / supprimer / déconnecter / changer ses propres rôles. */
+    private void rejectSelfAction(String callerIdHeader, Long targetId, String action) {
+        if (callerIdHeader == null) {
+            return;
+        }
+        try {
+            if (Long.valueOf(callerIdHeader).equals(targetId)) {
+                throw new InvalidActionException(
+                        "Vous ne pouvez pas " + action + " votre propre compte");
+            }
+        } catch (NumberFormatException e) {
+            throw new InvalidActionException("Identifiant appelant invalide");
+        }
+    }
 
     @GetMapping("/users")
     public ResponseEntity<Page<UserResponse>> getAllUsers(
@@ -64,7 +80,10 @@ public class AdminController {
     }
 
     @PutMapping("/users/{id}/disable")
-    public ResponseEntity<?> disableUser(@PathVariable Long id) {
+    public ResponseEntity<?> disableUser(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Auth-User-Id", required = false) String callerIdHeader) {
+        rejectSelfAction(callerIdHeader, id, "désactiver");
         adminService.disableUser(id);
         return ResponseEntity.ok("Utilisateur désactivé avec succès");
     }
@@ -79,13 +98,19 @@ public class AdminController {
     }
 
     @DeleteMapping("/users/{id}")
-    public ResponseEntity<?> deleteUser(@PathVariable Long id) {
+    public ResponseEntity<?> deleteUser(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Auth-User-Id", required = false) String callerIdHeader) {
+        rejectSelfAction(callerIdHeader, id, "supprimer");
         adminService.deleteUser(id);
         return ResponseEntity.ok("Utilisateur supprimé avec succès");
     }
 
     @PostMapping("/users/{id}/force-logout")
-    public ResponseEntity<?> forceLogoutUser(@PathVariable Long id) {
+    public ResponseEntity<?> forceLogoutUser(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Auth-User-Id", required = false) String callerIdHeader) {
+        rejectSelfAction(callerIdHeader, id, "déconnecter");
         authService.forceLogoutUser(id);
         return ResponseEntity.ok("Utilisateur déconnecté avec succès par l'admin");
     }
@@ -101,7 +126,9 @@ public class AdminController {
     @PutMapping("/users/{id}/role")
     public ResponseEntity<?> updateUserRoles(
             @PathVariable Long id,
-            @RequestParam List<RoleName> roles) {
+            @RequestParam List<RoleName> roles,
+            @RequestHeader(value = "X-Auth-User-Id", required = false) String callerIdHeader) {
+        rejectSelfAction(callerIdHeader, id, "modifier les rôles de");
         adminService.updateUserRoles(id, roles);
         return ResponseEntity.ok("Rôles mis à jour avec succès");
     }
