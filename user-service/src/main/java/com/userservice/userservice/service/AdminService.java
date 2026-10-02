@@ -10,6 +10,7 @@ import com.userservice.userservice.exception.UserNotFoundException;
 import com.userservice.userservice.kyc.entity.KycDocument;
 import com.userservice.userservice.kyc.entity.KycVerification;
 import com.userservice.userservice.kyc.enums.KycVerificationStatus;
+import com.userservice.userservice.kyc.repository.KycVerificationRepository;
 import com.userservice.userservice.kyc.service.KycService;
 import com.userservice.userservice.repository.RefreshTokenRepository;
 import com.userservice.userservice.repository.RoleRepository;
@@ -32,6 +33,7 @@ public class AdminService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final KycVerificationRepository verificationRepository;
     private final KycService kycService;
 
     @Transactional
@@ -98,6 +100,7 @@ public class AdminService {
             RoleName role,
             String city,
             String country,
+            KycVerificationStatus kycStatus,
             Pageable pageable) {
 
         Specification<User> spec = Specification.where(null);
@@ -115,6 +118,30 @@ public class AdminService {
         if (country != null && !country.isBlank()) {
             spec = spec.and((root, query, cb) ->
                     cb.like(cb.lower(root.get("country")), "%" + country.toLowerCase() + "%"));
+        }
+
+        if (kycStatus != null) {
+            if (kycStatus == KycVerificationStatus.NOT_STARTED) {
+                // Jamais démarré = aucune vérification avec un statut "avancé"
+                List<Long> startedIds = verificationRepository.findUserIdsByLatestStatusIn(List.of(
+                        KycVerificationStatus.PENDING,
+                        KycVerificationStatus.IN_REVIEW,
+                        KycVerificationStatus.VERIFIED,
+                        KycVerificationStatus.REJECTED,
+                        KycVerificationStatus.EXPIRED));
+                if (!startedIds.isEmpty()) {
+                    spec = spec.and((root, query, cb) ->
+                            cb.not(root.get("id").in(startedIds)));
+                }
+            } else {
+                List<Long> matchingIds =
+                        verificationRepository.findUserIdsByLatestStatusIn(List.of(kycStatus));
+                if (matchingIds.isEmpty()) {
+                    return Page.empty(pageable);
+                }
+                spec = spec.and((root, query, cb) ->
+                        root.get("id").in(matchingIds));
+            }
         }
 
         return userRepository.findAll(spec, pageable)

@@ -100,12 +100,13 @@ export const AdminUserService = {
     return api.get(`/admin/users/search?query=${encodeURIComponent(query)}&page=${page}&size=${size}`).then(res => normalizePage<AdminUser>(res.data));
   },
 
-  // Filter users by criteria (backend: role, city, country uniquement — pas de statut).
+  // Filter users by criteria (backend: role, city, country, kycStatus).
   // Le filtre `enabled` est appliqué côté client par le composant (voir AdminUsersOverview).
   filterUsers(filters: {
     role?: string;
     city?: string;
     country?: string;
+    kycStatus?: string;
   }, page = 0, size = 20): Promise<PaginatedResponse<AdminUser>> {
     const params = new URLSearchParams({
       page: page.toString(),

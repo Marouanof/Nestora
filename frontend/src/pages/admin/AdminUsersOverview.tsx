@@ -56,12 +56,13 @@ export const AdminUsersOverview: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [kycFilter, setKycFilter] = useState<string>('PENDING');
   const [countryFilter, setCountryFilter] = useState('');
   const [cityFilter, setCityFilter] = useState('');
 
   // Determine which query to use based on search/filter state
   const hasSearch = searchQuery.length > 2;
-  const hasFilters = roleFilter !== 'all' || statusFilter !== 'all' || countryFilter || cityFilter;
+  const hasFilters = roleFilter !== 'all' || statusFilter !== 'all' || kycFilter !== 'all' || countryFilter || cityFilter;
 
   const usersListQuery = useUsersList(page, 20);
   const userSearchQuery = useUserSearch(searchQuery, page, 20);
@@ -69,6 +70,7 @@ export const AdminUsersOverview: React.FC = () => {
     role: roleFilter !== 'all' ? roleFilter : undefined,
     city: cityFilter || undefined,
     country: countryFilter || undefined,
+    kycStatus: kycFilter !== 'all' ? kycFilter : undefined,
   }, page, 20);
 
   // Choose the active query
@@ -206,7 +208,7 @@ export const AdminUsersOverview: React.FC = () => {
         {/* Search and Filters */}
         <Card className="mb-6">
           <CardContent className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
               <div className="lg:col-span-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -237,6 +239,20 @@ export const AdminUsersOverview: React.FC = () => {
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={kycFilter} onValueChange={(v) => { setKycFilter(v); setPage(0); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="KYC" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All KYC</SelectItem>
+                  <SelectItem value="PENDING">Pending review</SelectItem>
+                  <SelectItem value="IN_REVIEW">In Review</SelectItem>
+                  <SelectItem value="VERIFIED">Verified</SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                  <SelectItem value="EXPIRED">Expired</SelectItem>
+                  <SelectItem value="NOT_STARTED">Not Started</SelectItem>
                 </SelectContent>
               </Select>
               <Input

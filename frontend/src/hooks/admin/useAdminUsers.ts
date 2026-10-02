@@ -33,11 +33,12 @@ export const useUserSearch = (query: string, page = 0, size = 20) => {
   });
 };
 
-// Filter users hook (backend: role, city, country uniquement — statut filtré côté client)
+// Filter users hook (backend: role, city, country, kycStatus — statut enabled filtré côté client)
 export const useUserFilters = (filters: {
   role?: string;
   city?: string;
   country?: string;
+  kycStatus?: string;
 }, page = 0, size = 20) => {
   return useQuery({
     queryKey: adminUserKeys.filter(filters, page, size),

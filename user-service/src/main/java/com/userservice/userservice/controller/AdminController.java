@@ -4,6 +4,7 @@ import com.userservice.userservice.dto.CreateUserRequest;
 import com.userservice.userservice.dto.UpdateProfileRequest;
 import com.userservice.userservice.dto.UserResponse;
 import com.userservice.userservice.enums.RoleName;
+import com.userservice.userservice.kyc.enums.KycVerificationStatus;
 import com.userservice.userservice.kyc.service.KycService;
 import com.userservice.userservice.service.AdminService;
 import com.userservice.userservice.service.AuthService;
@@ -33,12 +34,13 @@ public class AdminController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) RoleName role,
             @RequestParam(required = false) String city,
-            @RequestParam(required = false) String country
+            @RequestParam(required = false) String country,
+            @RequestParam(required = false) KycVerificationStatus kycStatus
     ) {
         Pageable pageable = PageRequest.of(page, size);
 
-        if (role != null || city != null || country != null) {
-            return ResponseEntity.ok(adminService.searchUsersAdvanced(role, city, country, pageable));
+        if (role != null || city != null || country != null || kycStatus != null) {
+            return ResponseEntity.ok(adminService.searchUsersAdvanced(role, city, country, kycStatus, pageable));
         }
 
         return ResponseEntity.ok(adminService.getAllUsers(pageable));
