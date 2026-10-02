@@ -48,6 +48,18 @@ public class AdminPropertyController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getPropertyById(
+            @RequestHeader(value = "X-Auth-Roles", defaultValue = "") String roles,
+            @PathVariable Long id) {
+
+        if (!roles.contains("ROLE_ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied: Admin role required");
+        }
+
+        return ResponseEntity.ok(adminPropertyService.getPropertyById(id));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteProperty(
             @RequestHeader(value = "X-Auth-Roles", defaultValue = "") String roles,

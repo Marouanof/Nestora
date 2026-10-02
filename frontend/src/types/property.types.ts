@@ -212,9 +212,9 @@ export interface AdminProperty {
   bedrooms: number;
   bathrooms: number;
   ownerId: number;
-  ownerFirstName: string;
-  ownerLastName: string;
-  ownerProfilePicture: string;
+  ownerFirstName: string | null;
+  ownerLastName: string | null;
+  ownerProfilePicture: string | null;
   ownershipDocumentUrl: string | null;
   status: 'ACTIVE' | 'PENDING_ADMIN' | 'REJECTED';
   minStayNights: number;

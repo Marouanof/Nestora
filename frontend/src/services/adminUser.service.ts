@@ -25,6 +25,7 @@ export interface AdminUser {
   kycVerified?: boolean;
   kycRectoUrl?: string;
   kycVersoUrl?: string;
+  kycSelfieUrl?: string;
   rejectionReason?: string;
 }
 

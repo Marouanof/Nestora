@@ -5,7 +5,6 @@ import { Heart, Star, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { formatMad } from '@/lib/utils';
 import { useWishlist } from '@/hooks/useWishlist';
-import { AiBadge } from '@/components/ai/AiBadge';
 import type { PropertySummary } from '@/types/property.types';
 
 interface PropertyCardProps {
@@ -99,11 +98,6 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           <h3 className="line-clamp-1 text-base font-semibold tracking-tight text-foreground">
             {property.title}
           </h3>
-          {property.suggestedPricePerNight && property.suggestedPricePerNight !== property.pricePerNight && (
-            <span title={`AI suggested: ${formatMad(property.suggestedPricePerNight)}/night`}>
-              <AiBadge size="sm" />
-            </span>
-          )}
         </div>
 
         <p className="mt-0.5 flex items-center gap-1 text-sm text-muted-foreground">

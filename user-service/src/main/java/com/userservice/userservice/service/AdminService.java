@@ -227,6 +227,7 @@ public class AdminService {
                 .photoUrl(user.getPhotoUrl())
                 .kycRectoUrl(doc != null ? doc.getRectoUrl() : null)
                 .kycVersoUrl(doc != null ? doc.getVersoUrl() : null)
+                .kycSelfieUrl(doc != null ? doc.getSelfieUrl() : null)
                 .kycStatus(verification != null ? verification.getStatus().name() : null)
                 .kycVerified(verification != null && verification.getStatus() == KycVerificationStatus.VERIFIED)
                 .rejectionReason(verification != null ? verification.getRejectionReason() : null)

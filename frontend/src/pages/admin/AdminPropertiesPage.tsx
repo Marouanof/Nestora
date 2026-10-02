@@ -108,13 +108,13 @@ export const AdminPropertiesPage: React.FC = () => {
 
   // Extract unique values for filters
   const uniqueCountries = useMemo(() => {
-    const countries = [...new Set(properties.map(p => p.address.country))];
-    return countries.sort();
+    const countries = [...new Set(properties.map(p => p.address?.country).filter(Boolean))];
+    return (countries as string[]).sort();
   }, [properties]);
 
   const uniqueCities = useMemo(() => {
-    const cities = [...new Set(properties.map(p => p.address.city))];
-    return cities.sort();
+    const cities = [...new Set(properties.map(p => p.address?.city).filter(Boolean))];
+    return (cities as string[]).sort();
   }, [properties]);
 
   const uniqueTypes = useMemo(() => {
@@ -146,17 +146,18 @@ export const AdminPropertiesPage: React.FC = () => {
   // Filtered properties based on search and filters
   const filteredProperties = useMemo(() => {
     return properties.filter(property => {
+      const q = searchQuery.toLowerCase();
       const matchesSearch = !searchQuery ||
-        property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        property.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        property.ownerFirstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        property.ownerLastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        property.address.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        property.address.country.toLowerCase().includes(searchQuery.toLowerCase());
+        (property.title ?? '').toLowerCase().includes(q) ||
+        (property.description ?? '').toLowerCase().includes(q) ||
+        (property.ownerFirstName ?? '').toLowerCase().includes(q) ||
+        (property.ownerLastName ?? '').toLowerCase().includes(q) ||
+        (property.address?.city ?? '').toLowerCase().includes(q) ||
+        (property.address?.country ?? '').toLowerCase().includes(q);
 
       const matchesStatus = statusFilter === 'all' || property.status === statusFilter;
-      const matchesCountry = countryFilter === 'all' || property.address.country === countryFilter;
-      const matchesCity = cityFilter === 'all' || property.address.city === cityFilter;
+      const matchesCountry = countryFilter === 'all' || property.address?.country === countryFilter;
+      const matchesCity = cityFilter === 'all' || property.address?.city === cityFilter;
       const matchesType = typeFilter === 'all' || property.type === typeFilter;
 
       return matchesSearch && matchesStatus && matchesCountry && matchesCity && matchesType;
@@ -425,14 +426,16 @@ export const AdminPropertiesPage: React.FC = () => {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Avatar className="w-8 h-8">
-                            <AvatarImage src={property.ownerProfilePicture} />
+                            <AvatarImage src={property.ownerProfilePicture ?? undefined} />
                             <AvatarFallback>
-                              {property.ownerFirstName[0]}{property.ownerLastName[0]}
+                              {property.ownerFirstName?.[0]}{property.ownerLastName?.[0]}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <div className="font-medium text-sm">
-                              {property.ownerFirstName} {property.ownerLastName}
+                              {property.ownerFirstName || property.ownerLastName
+                                ? `${property.ownerFirstName ?? ''} ${property.ownerLastName ?? ''}`.trim()
+                                : `Owner #${property.ownerId}`}
                             </div>
                           </div>
                         </div>
@@ -442,8 +445,8 @@ export const AdminPropertiesPage: React.FC = () => {
                         <div className="flex items-center gap-1">
                           <MapPin className="w-3 h-3 text-muted-foreground" />
                           <div>
-                            <div className="text-sm">{property.address.city}</div>
-                            <div className="text-xs text-muted-foreground">{property.address.country}</div>
+                            <div className="text-sm">{property.address?.city ?? '—'}</div>
+                            <div className="text-xs text-muted-foreground">{property.address?.country ?? ''}</div>
                           </div>
                         </div>
                       </TableCell>

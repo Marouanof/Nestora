@@ -213,10 +213,15 @@ export const PropertyDetailsPage: React.FC = () => {
                   <span className="ml-1.5 text-muted-foreground">per night</span>
                 </div>
                 {property.suggestedPricePerNight && property.suggestedPricePerNight !== property.pricePerNight && (
-                  <div className="flex items-center gap-2 rounded-full border border-warning/30 bg-warning/10 px-3.5 py-1.5">
-                    <AiBadge size="sm" />
-                    <span className="text-sm font-semibold text-warning">
-                      AI suggests {formatMad(property.suggestedPricePerNight)}/night
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2 rounded-full border border-warning/30 bg-warning/10 px-3.5 py-1.5">
+                      <AiBadge size="sm" />
+                      <span className="text-sm font-semibold text-warning">
+                        AI suggests {formatMad(property.suggestedPricePerNight)}/night
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      Basée sur les biens similaires à {property.address.city}
                     </span>
                   </div>
                 )}

@@ -10,9 +10,10 @@ interface RiskBadgeProps {
 
 /**
  * RiskBadge: Displays tenant risk score with color coding
- * - Low Risk (67-100): Green - Best rating
- * - Medium Risk (34-66): Yellow/Orange - Moderate rating
- * - High Risk (0-33): Red - Needs caution
+ * Seuils alignés sur l'API (main.py : HIGH < 40, MEDIUM < 70) :
+ * - Low Risk (70-100): Green - Best rating
+ * - Medium Risk (40-69): Yellow/Orange - Moderate rating
+ * - High Risk (0-39): Red - Needs caution
  * Higher score = Lower risk (0-100 scale)
  */
 export const RiskBadge = ({
@@ -45,11 +46,11 @@ export const RiskBadge = ({
   let icon = <AlertCircle className="h-4 w-4" />;
   let displayLevel = 'high';
 
-  if (score >= 67) {
+  if (score >= 70) {
     variantColor = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
     icon = <CheckCircle className="h-4 w-4" />;
     displayLevel = 'low';
-  } else if (score >= 34) {
+  } else if (score >= 40) {
     variantColor = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
     icon = <AlertTriangle className="h-4 w-4" />;
     displayLevel = 'medium';

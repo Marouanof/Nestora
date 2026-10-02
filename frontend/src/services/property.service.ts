@@ -154,6 +154,11 @@ export class PropertyService {
     return response.data;
   }
 
+  static async adminGetById(id: number): Promise<Property> {
+    const response = await api.get(`/admin/properties/${id}`);
+    return response.data;
+  }
+
   static async adminApprove(id: number): Promise<void> {
     await api.post(`/admin/properties/${id}/approve`);
   }

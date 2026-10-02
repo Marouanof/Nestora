@@ -58,6 +58,14 @@ public class AdminPropertyService {
         return properties.map(propertyService::mapToPropertyResponse);
     }
 
+    @Transactional(readOnly = true)
+    public PropertyResponse getPropertyById(Long id) {
+        Property property = propertyRepository.findById(id)
+                .orElseThrow(() -> new PropertyNotFoundException("Property not found"));
+        // Pas de contrôle de visibilité : l'admin revoit tous les statuts (dont PENDING_ADMIN)
+        return propertyService.mapToPropertyResponse(property);
+    }
+
     @Transactional
     public void deleteProperty(Long id) {
         if (!propertyRepository.existsById(id)) {

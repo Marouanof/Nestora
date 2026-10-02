@@ -28,6 +28,7 @@ public class UserResponse {
     private String photoUrl;
     private String kycRectoUrl;
     private String kycVersoUrl;
+    private String kycSelfieUrl;
     private String kycStatus;
     private boolean kycVerified;
     private String rejectionReason;

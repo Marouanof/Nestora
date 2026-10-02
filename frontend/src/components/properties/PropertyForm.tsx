@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CountryCitySelector } from './CountryCitySelector';
 import { LocationPicker } from './LocationPicker';
 import { PropertyService } from '@/services/property.service';
+import { AiBadge } from '@/components/ai/AiBadge';
 import type { Property } from '@/types/property.types';
 import { useNavigate } from 'react-router-dom';
 import { formatMad } from '@/lib/utils';
@@ -156,6 +157,19 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
 
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
   const [ownershipDocument, setOwnershipDocument] = useState<File | null>(null);
+  const [aiSuggestion, setAiSuggestion] = useState<number | null>(null);
+
+  // Suggestion IA du prix (mode édition uniquement : il faut un bien existant).
+  // Silencieux si le service IA est injoignable.
+  useEffect(() => {
+    if (!initialData?.id) return;
+    const today = new Date().toISOString().slice(0, 10);
+    PropertyService.getSuggestedPrice(initialData.id, today, today)
+      .then((res) => {
+        if (res?.suggestedPrice && res.suggestedPrice > 0) setAiSuggestion(res.suggestedPrice);
+      })
+      .catch(() => {});
+  }, [initialData?.id]);
 
   useEffect(() => {
     if (initialData) {
@@ -496,6 +510,22 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
               <p className="text-xs text-muted-foreground mt-1">
                 {formatMad(formData.pricePerNight)}
               </p>
+              {aiSuggestion != null && aiSuggestion !== formData.pricePerNight && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2">
+                  <AiBadge size="sm" />
+                  <span className="text-xs font-medium">
+                    Les biens similaires se louent autour de {formatMad(aiSuggestion)}/nuit
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updateFormData('pricePerNight', aiSuggestion)}
+                  >
+                    Utiliser ce prix
+                  </Button>
+                </div>
+              )}
             </div>
             <div>
               <Label htmlFor="maxGuests">Maximum Guests</Label>

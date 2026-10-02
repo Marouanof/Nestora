@@ -29,7 +29,9 @@ import {
   Bed,
   Bath,
   Wifi,
-  Home
+  Home,
+  FileText,
+  AlertTriangle
 } from 'lucide-react';
 import { formatMad } from '@/lib/utils';
 import type { Property } from '@/types/property.types';
@@ -64,7 +66,7 @@ export const AdminPropertyDetailPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await PropertyService.getById(propertyId);
+      const data = await PropertyService.adminGetById(propertyId);
       setProperty(data);
     } catch (err) {
       console.error('Failed to fetch property:', err);
@@ -84,7 +86,9 @@ export const AdminPropertyDetailPage: React.FC = () => {
       setActionDialog({ open: false, type: null });
     } catch (err) {
       console.error('Failed to approve property:', err);
-      toast.error('Failed to approve property');
+      const message = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      toast.error(message || 'Failed to approve property');
     }
   };
 
@@ -309,6 +313,34 @@ export const AdminPropertyDetailPage: React.FC = () => {
             </CardContent>
           </Card>
 
+          {/* Ownership Document */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Ownership Document
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {property.ownershipDocumentUrl ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => window.open(property.ownershipDocumentUrl, '_blank', 'noopener,noreferrer')}
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  View Document
+                </Button>
+              ) : (
+                <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>No ownership document provided — approval will fail until the owner uploads one.</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Admin Actions */}
           <Card>
             <CardHeader>
@@ -319,6 +351,8 @@ export const AdminPropertyDetailPage: React.FC = () => {
                 <>
                   <Button
                     className="w-full bg-green-600 hover:bg-green-700"
+                    disabled={!property.ownershipDocumentUrl}
+                    title={!property.ownershipDocumentUrl ? 'Ownership document required before approval' : undefined}
                     onClick={() => setActionDialog({ open: true, type: 'approve' })}
                   >
                     <CheckCircle2 className="w-4 h-4 mr-2" />

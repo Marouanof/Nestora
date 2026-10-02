@@ -362,13 +362,17 @@ export const AdminUserDetails: React.FC = () => {
 
               <div>
                 <Label htmlFor="dateNaissance">Date of Birth</Label>
-                <Input
-                  id="dateNaissance"
-                  type="date"
-                  value={formData.dateNaissance}
-                  onChange={(e) => setFormData({ ...formData, dateNaissance: e.target.value })}
-                  disabled={!isEditing}
-                />
+                {!isEditing && !formData.dateNaissance ? (
+                  <p className="text-sm text-muted-foreground py-2">Non renseignée</p>
+                ) : (
+                  <Input
+                    id="dateNaissance"
+                    type="date"
+                    value={formData.dateNaissance}
+                    onChange={(e) => setFormData({ ...formData, dateNaissance: e.target.value })}
+                    disabled={!isEditing}
+                  />
+                )}
               </div>
 
               <div>
@@ -452,11 +456,12 @@ export const AdminUserDetails: React.FC = () => {
                 <span className="text-muted-foreground">Documents</span>
                 <span>
                   {user?.kycRectoUrl ? '✓' : '✗'} recto &nbsp;
-                  {user?.kycVersoUrl ? '✓' : '✗'} verso
+                  {user?.kycVersoUrl ? '✓' : '✗'} verso &nbsp;
+                  {user?.kycSelfieUrl ? '✓' : '✗'} selfie
                 </span>
               </div>
 
-              {(user?.kycRectoUrl || user?.kycVersoUrl) && (
+              {(user?.kycRectoUrl || user?.kycVersoUrl || user?.kycSelfieUrl) && (
                 <div className="grid grid-cols-2 gap-3">
                   {user?.kycRectoUrl && (
                     <a href={user.kycRectoUrl} target="_blank" rel="noreferrer" className="group block">
@@ -475,6 +480,17 @@ export const AdminUserDetails: React.FC = () => {
                       <img
                         src={user.kycVersoUrl}
                         alt="KYC verso"
+                        loading="lazy"
+                        className="aspect-[3/2] w-full rounded-lg border object-cover transition group-hover:opacity-90"
+                      />
+                    </a>
+                  )}
+                  {user?.kycSelfieUrl && (
+                    <a href={user.kycSelfieUrl} target="_blank" rel="noreferrer" className="group col-span-2 block">
+                      <p className="mb-1 text-xs font-medium text-muted-foreground">Selfie — cliquer pour agrandir</p>
+                      <img
+                        src={user.kycSelfieUrl}
+                        alt="KYC selfie"
                         loading="lazy"
                         className="aspect-[3/2] w-full rounded-lg border object-cover transition group-hover:opacity-90"
                       />
