@@ -171,7 +171,6 @@ async def get_suggested_price(property_id: int, date: str):
             "propertyId": property_id,
             "property_id": property_id,
             "suggested_price_mad": round(float(final_price), 2),
-            "suggested_price_eth": round(float(final_price), 2),
             "currency": "MAD",
             "details": {
                 "base_ai_price": round(float(price_with_premium), 2),
