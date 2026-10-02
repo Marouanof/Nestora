@@ -23,6 +23,10 @@ RISK_MODEL_PATH = os.getenv("RISK_MODEL_PATH", "risk_model.joblib")
 
 MODEL = None
 RISK_MODEL = None
+MODEL_FEATURES = ["lat", "lon", "bedrooms", "beds", "guests",
+                  "rating", "reviews", "images", "city_code", "month"]
+MODEL_CITIES: list = []
+MODEL_DEFAULTS = {"rating": 4.5, "reviews": 0, "images": 10}
 
 # --- REAL PROPERTY DATA (fetched from property-service) ---
 # Les vraies propriétés actives proviennent désormais du property-service.
@@ -50,9 +54,16 @@ print("✅ K-Means Clustering complete. Clusters created on real properties.")
 
 
 def load_models():
-    global MODEL, RISK_MODEL
+    global MODEL, RISK_MODEL, MODEL_FEATURES, MODEL_CITIES, MODEL_DEFAULTS
     if os.path.exists(MODEL_PATH):
-        MODEL = joblib.load(MODEL_PATH)
+        bundle = joblib.load(MODEL_PATH)
+        if hasattr(bundle, "predict"):
+            MODEL = bundle  # ancien format : régresseur seul
+        else:
+            MODEL = bundle.get("model")
+            MODEL_FEATURES = bundle.get("features", MODEL_FEATURES)
+            MODEL_CITIES = bundle.get("cities", [])
+            MODEL_DEFAULTS = bundle.get("defaults", MODEL_DEFAULTS)
         print("✅ Modèle Pricing chargé")
     if os.path.exists(RISK_MODEL_PATH):
         RISK_MODEL = joblib.load(RISK_MODEL_PATH)
@@ -98,9 +109,9 @@ async def get_recommendations(user_budget: float = Query(..., gt=0)):
 async def get_suggested_price(property_id: int, date: str):
     """
     Endpoint appelé par le property-service.
-    Calcule un prix basé sur : l'IA (XGBoost) + Saisonnalité + Week-end + rendement.
-    Utilise les vraies caractéristiques de la propriété (lat/lon/chambres/...) et
-    ancre la suggestion autour du prix réel du listing pour rester cohérent.
+    Modèle XGBoost entraîné sur 65k vraies annonces Airbnb Maroc (MAD/nuit) :
+    ville, mois, chambres, lits, notes... puis ancrage autour du prix réel
+    du listing pour rester cohérent avec le catalogue.
     """
     if MODEL is None:
         raise HTTPException(status_code=500, detail="Modèle IA non chargé sur le serveur")
@@ -116,56 +127,55 @@ async def get_suggested_price(property_id: int, date: str):
         if prop is not None:
             lat = prop["lat"] or 33.0
             lon = prop["lon"] or -7.0
-            rooms = prop["bedrooms"]
-            baths = prop["bathrooms"]
-            guests = prop["maxGuests"]
-            amenities = prop["amenities_count"]
+            rooms = prop["bedrooms"] or 1
+            guests = prop["maxGuests"] or 2
+            beds = max(1, round(guests / 2))
+            city = (prop.get("city") or "").strip()
             real_price = prop["pricePerNight"]
         else:
             # Propriété inconnue du catalogue : valeurs par défaut
-            lat, lon, rooms, baths, guests = 33.0, -7.0, 1, 1, 2
-            amenities = 3
+            lat, lon, rooms, guests = 33.0, -7.0, 1, 2
+            beds, city = 1, ""
             real_price = None
 
-        # 1. Prédiction "base" avec premium neutre (1.0)
+        # 1. Prédiction du modèle (effets ville/mois/chambres appris sur données réelles)
+        try:
+            city_code = MODEL_CITIES.index(city)
+        except ValueError:
+            city_code = -1
         base_features = pd.DataFrame([{
             "lat": lat,
             "lon": lon,
             "bedrooms": rooms,
-            "bathrooms": baths,
-            "maxGuests": guests,
-            "amenities_count": amenities,
-            "rating": 4.5,
-            "city_premium": 1.0
+            "beds": beds,
+            "guests": guests,
+            "rating": MODEL_DEFAULTS.get("rating", 4.5),
+            "reviews": MODEL_DEFAULTS.get("reviews", 0),
+            "images": MODEL_DEFAULTS.get("images", 10),
+            "city_code": city_code,
+            "month": month,
         }])
+        base_features = base_features[MODEL_FEATURES]
         base_prediction = float(MODEL.predict(base_features)[0])
 
-        # 2. Premium de ville dérivé du prix réel du listing (pour ancrer la suggestion)
-        city_premium = 1.0
+        # 2. Ancrage autour du prix réel du listing (le modèle donne la
+        # justesse relative, le listing donne le niveau)
+        anchor_source = "model"
         if real_price and base_prediction > 0:
-            city_premium = real_price / base_prediction
-            city_premium = float(np.clip(city_premium, 0.7, 2.2))
-        elif prop is not None:
-            # Heuristique simple par notoriété si pas de prix exploitable
-            known = {"Marrakech": 1.5, "Casablanca": 1.4, "Tanger": 1.2,
-                     "Agadir": 1.1, "Essaouira": 1.2, "Maroc": 1.0}
-            city_premium = known.get((prop.get("city") or "").strip(), 1.0)
+            city_premium = float(np.clip(real_price / base_prediction, 0.7, 2.2))
+            anchor_source = "listing"
+        else:
+            # Repli : médiane réelle de la ville (référentiel DeRent5)
+            city_premium = 1.0
+            try:
+                ref = analytics_engine.load_market_referential().get(city) or {}
+                if ref.get("median") and base_prediction > 0:
+                    city_premium = float(np.clip(ref["median"] / base_prediction, 0.7, 2.2))
+                    anchor_source = "city-median"
+            except Exception:
+                pass
 
-        price_with_premium = base_prediction * city_premium
-
-        # 3. Règles dynamiques (Saisonnalité)
-        multiplier = 1.0
-        if month in [6, 7, 8]:      # Boost été
-            multiplier += 0.30
-        elif month == 12:           # Boost fêtes
-            multiplier += 0.20
-
-        if is_weekend:              # Boost week-end (+10%)
-            multiplier += 0.10
-
-        # 4. Rendement (+12%)
-        yield_multiplier = 1.12
-        final_price = price_with_premium * multiplier * yield_multiplier
+        final_price = base_prediction * city_premium
 
         return {
             "propertyId": property_id,
@@ -173,10 +183,9 @@ async def get_suggested_price(property_id: int, date: str):
             "suggested_price_mad": round(float(final_price), 2),
             "currency": "MAD",
             "details": {
-                "base_ai_price": round(float(price_with_premium), 2),
-                "city_premium": round(city_premium, 3),
-                "season_impact": f"+{int((multiplier-1)*100)}%",
-                "yield_bonus": "12%",
+                "base_ai_price": round(float(base_prediction), 2),
+                "anchor": anchor_source,
+                "city": city,
                 "is_weekend": is_weekend,
                 "month": month
             },

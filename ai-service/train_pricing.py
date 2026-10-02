@@ -1,58 +1,91 @@
-import pandas as pd
-import numpy as np
+"""Entraîne le modèle de pricing sur de VRAIES annonces Airbnb Maroc.
+
+Source : DeRent5/ai-service data/morocco_listings_full.csv (65k annonces,
+prix/nuit en MAD). Le script télécharge le CSV s'il est absent en local.
+
+Usage :
+    python train_pricing.py [chemin_csv]
+"""
+import os
+import sys
+import urllib.request
+
 import joblib
+import numpy as np
+import pandas as pd
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
 from xgboost import XGBRegressor
 
-def train_and_save_model():
-    print("⏳ Création des données d'entraînement (échelle EUR, réaliste)...")
-    data = []
+CSV_URL = ("https://raw.githubusercontent.com/DeRent5/ai-service/main"
+           "/data/morocco_listings_full.csv")
+LOCAL_CSV = os.path.join(os.path.dirname(__file__), "data", "morocco_listings_full.csv")
 
-    # Génère 3000 locations fictives réalistes.
-    # Le modèle prédit un prix par nuit en EUR. La logique de base reproduit les
-    # prix réels du property-service (≈ 50 à 450 EUR/nuit) pour que les suggestions
-    # IA soient cohérentes avec le catalogue.
-    for _ in range(3000):
-        bedrooms = np.random.randint(1, 6)
-        bathrooms = np.random.randint(1, 5)
-        lat = np.random.uniform(28, 36)     # Maroc
-        lon = np.random.uniform(-12, -2)    # Maroc
-        amenities_count = np.random.randint(2, 12)
-        rating = np.random.uniform(3.0, 5.0)
-        city_premium = np.random.uniform(1.0, 1.8)
-        maxGuests = bedrooms * 2 + np.random.randint(0, 2)
+FEATURES = ["lat", "lon", "bedrooms", "beds", "guests",
+            "rating", "reviews", "images", "city_code", "month"]
+TARGET = "nightly_price"
 
-        # Logique de prix (EUR/nuit) : base + contributions par attribut
-        base_price = (35.0
-                      + bedrooms * 42.0
-                      + bathrooms * 28.0
-                      + amenities_count * 4.0
-                      + (rating - 3.0) * 15.0)
-        price_eur = base_price * city_premium + np.random.normal(0, 18.0)
-        price_eur = max(45.0, price_eur)  # Prix minimum réaliste
 
-        data.append({
-            "lat": lat,
-            "lon": lon,
-            "bedrooms": bedrooms,
-            "bathrooms": bathrooms,
-            "maxGuests": maxGuests,
-            "amenities_count": amenities_count,
-            "rating": rating,
-            "city_premium": city_premium,
-            "price_eth": price_eur,  # Libellé conservé mais maintenant en EUR
-        })
+def ensure_csv(path_arg=None):
+    path = path_arg or LOCAL_CSV
+    if os.path.exists(path):
+        print(f"CSV local : {path}")
+        return path
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    print(f"Téléchargement {CSV_URL} ...")
+    urllib.request.urlretrieve(CSV_URL, path)
+    print(f"CSV sauvegardé : {path}")
+    return path
 
-    df = pd.DataFrame(data)
 
-    X = df.drop("price_eth", axis=1)
-    y = df["price_eth"]
+def train_and_save_model(csv_path=None):
+    csv_path = ensure_csv(csv_path)
+    df = pd.read_csv(csv_path, usecols=["city", "nightly_price", "check_in",
+                                        "latitude", "longitude", "bedroom_count",
+                                        "bed_count", "rating_value", "rating_count",
+                                        "image_count"])
+    df = df[(df["nightly_price"] > 0) & (df["nightly_price"] < 20000)].copy()
+    df["month"] = pd.to_datetime(df["check_in"]).dt.month
 
-    print("🤖 Entraînement du modèle XGBoost (EUR)...")
-    model = XGBRegressor(n_estimators=200, learning_rate=0.08, max_depth=6, random_state=42)
-    model.fit(X, y)
+    cities = sorted(df["city"].dropna().unique().tolist())
+    city_code = {c: i for i, c in enumerate(cities)}
 
-    joblib.dump(model, "pricing_model.joblib")
-    print("✅ Modèle 'pricing_model.joblib' créé (échelle EUR).")
+    work = pd.DataFrame({
+        "lat": df["latitude"].fillna(33.0),
+        "lon": df["longitude"].fillna(-7.0),
+        "bedrooms": df["bedroom_count"].fillna(1).clip(0, 10).astype(int),
+        "beds": df["bed_count"].fillna(2).clip(1, 16).astype(int),
+        "guests": df["bed_count"].fillna(2).clip(1, 16).astype(int),
+        "rating": df["rating_value"].fillna(4.5),
+        "reviews": df["rating_count"].fillna(0).astype(int),
+        "images": df["image_count"].fillna(10).astype(int),
+        "city_code": df["city"].map(city_code).fillna(-1).astype(int),
+        "month": df["month"].fillna(6).astype(int),
+    })
+    y = df["nightly_price"].astype(float)
+
+    defaults = {
+        "rating": 4.5,
+        "reviews": int(work["reviews"].median()),
+        "images": int(work["images"].median()),
+    }
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        work, y, test_size=0.2, random_state=42)
+    model = XGBRegressor(n_estimators=300, learning_rate=0.06,
+                         max_depth=7, random_state=42, n_jobs=-1)
+    model.fit(X_train, y_train)
+    pred = model.predict(X_test)
+    print(f"MAE={mean_absolute_error(y_test, pred):.2f} MAD | "
+          f"RMSE={np.sqrt(mean_squared_error(y_test, pred)):.2f} | "
+          f"R2={r2_score(y_test, pred):.4f} (n={len(work)})")
+
+    bundle = {"model": model, "features": FEATURES,
+              "cities": cities, "defaults": defaults}
+    out = os.path.join(os.path.dirname(__file__), "pricing_model.joblib")
+    joblib.dump(bundle, out)
+    print(f"Modèle sauvegardé : {out}")
+
 
 if __name__ == "__main__":
-    train_and_save_model()
+    train_and_save_model(sys.argv[1] if len(sys.argv) > 1 else None)
