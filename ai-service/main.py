@@ -26,7 +26,7 @@ RISK_MODEL = None
 
 # --- REAL PROPERTY DATA (fetched from property-service) ---
 # Les vraies propriétés actives proviennent désormais du property-service.
-# pricePerNight est en EUR. Le client retombe sur des données de secours si le
+# pricePerNight est en MAD. Le client retombe sur des données de secours si le
 # service est injoignable (le démarrage ne doit jamais échouer).
 PROPERTIES = property_client.fetch_properties()
 PROPERTY_BY_ID = {p["id"]: p for p in PROPERTIES}
@@ -228,9 +228,24 @@ async def get_market_trends():
     1. Forecasted prices for next 30 days for each major city.
     2. Best Model selected empirically (RandomForest vs Holt-Winters).
     3. Market Cluster (Grouping cities by trend similarity).
+
+    Les prix de base viennent des moyennes réelles par ville du catalogue
+    (MAD/nuit), avec repli sur les défauts réalistes du moteur sinon.
     """
     try:
-        results = analytics_engine.get_market_analysis()
+        from collections import defaultdict
+        city_prices: dict[str, list[float]] = defaultdict(list)
+        for p in PROPERTIES:
+            city = (p.get("city") or "").strip()
+            price = float(p.get("pricePerNight") or 0)
+            if city in analytics_engine.CITIES and price > 0:
+                city_prices[city].append(price)
+        base_prices = {
+            city: sum(prices) / len(prices)
+            for city, prices in city_prices.items()
+            if prices
+        } or None
+        results = analytics_engine.get_market_analysis(base_prices=base_prices)
         return {"status": "success", "data": results}
     except Exception as e:
         print(f"Analytics Error: {e}")

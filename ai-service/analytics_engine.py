@@ -13,18 +13,23 @@ from datetime import datetime, timedelta
 # We simulate 12 months of history for our 5 cities (to avoid empty DB issues)
 
 CITIES = ["Casablanca", "Rabat", "Agadir", "Fes", "Tanger"]
-BASE_PRICES = {
-    "Casablanca": 1.0e-7,
-    "Rabat": 2.0e-7,
-    "Agadir": 1.0e-7,
-    "Fes": 1.0e-7,
-    "Tanger": 3.0e-7
+
+# Prix de base par ville (MAD/nuit). Valeurs par défaut réalistes, mais
+# get_market_analysis() préfère les moyennes calculées sur les vraies
+# annonces (voir main.py) quand elles sont disponibles.
+DEFAULT_BASE_PRICES = {
+    "Casablanca": 950.0,
+    "Rabat": 800.0,
+    "Agadir": 1100.0,
+    "Fes": 700.0,
+    "Tanger": 900.0
 }
 
-def generate_historical_data(days=365):
+def generate_historical_data(days=365, base_prices=None):
     """
     Generates synthetic daily average price data for each city over the last year.
     Includes seasonality (Summer high, Winter low) and random noise.
+    base_prices: dict ville -> prix moyen MAD/nuit (défauts réalistes sinon).
     """
     end_date = datetime.now()
     start_date = end_date - timedelta(days=days)
@@ -32,8 +37,9 @@ def generate_historical_data(days=365):
     
     all_data = []
 
+    bases = base_prices or DEFAULT_BASE_PRICES
     for city in CITIES:
-        base = BASE_PRICES[city]
+        base = bases.get(city) or DEFAULT_BASE_PRICES[city]
         
         # Seasonality factors
         # Summer (Jun-Aug) = +30%, Dec = +20%
@@ -222,8 +228,8 @@ def cluster_cities(df_history):
         
     return results
 
-def get_market_analysis():
-    df = generate_historical_data()
+def get_market_analysis(base_prices=None):
+    df = generate_historical_data(base_prices=base_prices)
     
     # 1. Forecasting
     forecasts = []

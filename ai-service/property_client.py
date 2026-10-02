@@ -2,7 +2,7 @@
 Client du Property Service.
 
 Récupère les vraies propriétés actives depuis le property-service (REST)
-afin que le service IA travaille sur des données réelles (prix EUR, villes
+afin que le service IA travaille sur des données réelles (prix MAD, villes
 marocaines, coordonnées GPS) au lieu de données mock en dur.
 
 Si le property-service est injoignable (ou en panne), on retombe sur un jeu

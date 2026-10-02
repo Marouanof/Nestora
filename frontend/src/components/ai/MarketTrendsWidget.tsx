@@ -255,7 +255,7 @@ export const MarketTrendsWidget = ({
                     Model: <span className="font-medium">{city.model_used}</span>
                   </p>
                   <p className="text-muted-foreground">
-                    Error: <span className="font-medium">{city.rmse_error.toFixed(2)}%</span>
+                    Précision : <span className="font-medium">± {formatMad(city.rmse_error)} (RMSE)</span>
                   </p>
                   <p className="text-muted-foreground">
                     Cluster:{' '}
