@@ -47,6 +47,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { useUsersList, useUserSearch, useUserFilters, useEnableUser, useDisableUser, useChangeRole, useForceLogout, useDeleteUser, useApproveKyc, useRejectKyc } from '@/hooks/admin/useAdminUsers';
+import { COUNTRIES_LIST, COUNTRIES_AND_CITIES } from '@/types/location.constants';
 import type { AdminUser } from '@/services/adminUser.service';
 import { getPrimaryRole, isUserActive } from '@/services/adminUser.service';
 
@@ -144,6 +145,13 @@ export const AdminUsersOverview: React.FC = () => {
 
   const isKycPending = (user?: AdminUser) =>
     user?.kycStatus === 'PENDING' || user?.kycStatus === 'IN_REVIEW';
+
+  const citiesForCountry = (countryName: string): string[] => {
+    if (!countryName) return [];
+    const code = COUNTRIES_LIST.find((c) => c.name.common === countryName)?.cca2;
+    return (code && COUNTRIES_AND_CITIES[code]) || [];
+  };
+  const cityOptions = citiesForCountry(countryFilter);
 
   const getKycBadgeVariant = (user?: AdminUser) => {
     if (user?.kycVerified || user?.kycStatus === 'VERIFIED') return 'default';
@@ -255,16 +263,53 @@ export const AdminUsersOverview: React.FC = () => {
                   <SelectItem value="NOT_STARTED">Not Started</SelectItem>
                 </SelectContent>
               </Select>
-              <Input
-                placeholder="Country"
-                value={countryFilter}
-                onChange={(e) => setCountryFilter(e.target.value)}
-              />
-              <Input
-                placeholder="City"
-                value={cityFilter}
-                onChange={(e) => setCityFilter(e.target.value)}
-              />
+              <Select
+                value={countryFilter || 'all'}
+                onValueChange={(v) => {
+                  setCountryFilter(v === 'all' ? '' : v);
+                  setCityFilter('');
+                  setPage(0);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Country" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Countries</SelectItem>
+                  {COUNTRIES_LIST.map((c) => (
+                    <SelectItem key={c.cca2} value={c.name.common}>
+                      {c.name.common}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {cityOptions.length > 0 ? (
+                <Select
+                  value={cityFilter || 'all'}
+                  onValueChange={(v) => {
+                    setCityFilter(v === 'all' ? '' : v);
+                    setPage(0);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="City" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Cities</SelectItem>
+                    {cityOptions.map((city) => (
+                      <SelectItem key={city} value={city}>
+                        {city}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  placeholder="City"
+                  value={cityFilter}
+                  onChange={(e) => setCityFilter(e.target.value)}
+                />
+              )}
             </div>
           </CardContent>
         </Card>
