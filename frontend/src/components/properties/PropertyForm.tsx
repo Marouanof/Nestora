@@ -26,12 +26,28 @@ interface AmenitiesInputProps {
   onChange: (amenities: string[]) => void;
 }
 
+const SUGGESTED_AMENITIES = [
+  'Wifi',
+  'Piscine',
+  'Climatisation',
+  'Parking',
+  'Petit-déjeuner',
+  'Terrasse',
+  'TV',
+  'Cuisine équipée',
+  'Machine à laver',
+  'Jardin',
+  'Vue mer',
+  'Cheminée',
+];
+
 const AmenitiesInput: React.FC<AmenitiesInputProps> = ({ amenities, onChange }) => {
   const [input, setInput] = useState('');
 
-  const addAmenity = () => {
-    if (input.trim() && !amenities.includes(input.trim())) {
-      onChange([...amenities, input.trim()]);
+  const addAmenity = (value?: string) => {
+    const trimmed = (value ?? input).trim();
+    if (trimmed && !amenities.includes(trimmed)) {
+      onChange([...amenities, trimmed]);
       setInput('');
     }
   };
@@ -39,6 +55,8 @@ const AmenitiesInput: React.FC<AmenitiesInputProps> = ({ amenities, onChange }) 
   const removeAmenity = (amenity: string) => {
     onChange(amenities.filter(a => a !== amenity));
   };
+
+  const suggestions = SUGGESTED_AMENITIES.filter((s) => !amenities.includes(s));
 
   return (
     <div>
@@ -49,8 +67,25 @@ const AmenitiesInput: React.FC<AmenitiesInputProps> = ({ amenities, onChange }) 
           placeholder="Add amenity"
           onKeyPress={(e) => e.key === 'Enter' && addAmenity()}
         />
-        <Button onClick={addAmenity} type="button">Add</Button>
+        <Button onClick={() => addAmenity()} type="button">Add</Button>
       </div>
+      {suggestions.length > 0 && (
+        <div className="mb-2">
+          <p className="text-xs text-muted-foreground mb-1.5">Suggestions — cliquer pour ajouter :</p>
+          <div className="flex flex-wrap gap-1.5">
+            {suggestions.map((s) => (
+              <Badge
+                key={s}
+                variant="outline"
+                className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+                onClick={() => addAmenity(s)}
+              >
+                + {s}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap gap-1">
         {amenities.map((amenity, index) => (
           <Badge key={index} variant="secondary" className="cursor-pointer" onClick={() => removeAmenity(amenity)}>
@@ -236,11 +271,13 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
 
       // Step 4: Show success message
       setSubmitSuccess(true);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error creating property:', error);
+      const message = (error as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
       onSubmit({
         error: true,
-        message: 'Failed to create property. Please try again.'
+        message: message || 'Failed to create property. Please try again.'
       });
     } finally {
       setIsSubmitting(false);
@@ -569,13 +606,19 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
                   required
                 />
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-start space-x-2">
                 <Switch
                   id="instantBookable"
                   checked={formData.instantBookable}
                   onCheckedChange={(checked: boolean) => updateFormData('instantBookable', checked)}
                 />
-                <Label htmlFor="instantBookable">Allow Instant Booking</Label>
+                <div>
+                  <Label htmlFor="instantBookable">Allow Instant Booking</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Activé : le tenant réserve et paie sans ton accord (bouton « Reserve »).
+                    Désactivé : tu reçois une demande à accepter/refuser (bouton « Request to book »).
+                  </p>
+                </div>
               </div>
             </div>
           </div>
