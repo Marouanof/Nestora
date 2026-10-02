@@ -28,14 +28,20 @@ export const SubmitReviewPage: React.FC = () => {
     e.preventDefault();
     if (!propertyId) return;
 
+    if (reviewData.comment.trim().length < 10) {
+      toast.error('Ton avis doit contenir au moins 10 caractères');
+      return;
+    }
+
     setSubmitting(true);
     try {
       await PropertyService.postReview(propertyId, reviewData);
       toast.success('Review submitted successfully!');
       navigate(`/properties/${propertyId}`);
-    } catch (err) {
-      console.error('Failed to submit review:', err);
-      toast.error('Failed to submit review. Please try again.');
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      toast.error(message || 'Failed to submit review. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -134,8 +140,8 @@ export const SubmitReviewPage: React.FC = () => {
                 className="mt-1"
                 required
               />
-              <p className="text-sm text-muted-foreground mt-1">
-                Minimum 10 characters
+              <p className={`text-sm mt-1 ${reviewData.comment.trim().length < 10 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                Minimum 10 caractères ({reviewData.comment.trim().length}/10)
               </p>
             </div>
 
@@ -164,7 +170,7 @@ export const SubmitReviewPage: React.FC = () => {
 
             <Button
               type="submit"
-              disabled={submitting || reviewData.comment.length < 10}
+              disabled={submitting}
               className="w-full"
               size="lg"
             >
