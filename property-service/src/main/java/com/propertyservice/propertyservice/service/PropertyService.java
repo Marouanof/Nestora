@@ -40,9 +40,19 @@ public class PropertyService {
                     "Veuillez compléter votre profil et valider votre KYC avant de publier (Rôle OWNER requis)");
         }
 
-        // 2. KYC Profile Validation
+        // 2. KYC Profile Validation (modèle Airbnb : identité vérifiée exigée
+        // pour publier, avec un message adapté à chaque état du dossier)
         UserProfileDTO userProfile = userProfileClient.getUserProfile(ownerId);
-        if (!userProfile.isKycComplete()) {
+        if (!userProfile.isKycVerified()) {
+            if (userProfile.isKycPendingReview()
+                    || (!userProfile.isKycRejected() && userProfile.hasKycDocuments())) {
+                throw new com.propertyservice.propertyservice.exception.IncompleteProfileException(
+                        "Votre dossier KYC est en cours de vérification par notre équipe. Vous pourrez publier votre annonce dès sa validation.");
+            }
+            if (userProfile.isKycRejected()) {
+                throw new com.propertyservice.propertyservice.exception.IncompleteProfileException(
+                        "Votre vérification d'identité a été refusée ou a expiré. Veuillez soumettre à nouveau vos documents depuis votre profil avant de publier une propriété.");
+            }
             throw new com.propertyservice.propertyservice.exception.IncompleteProfileException(
                     "Veuillez compléter votre profil KYC (photo, recto et verso de la pièce d'identité) avant de publier une propriété");
         }

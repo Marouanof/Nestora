@@ -432,7 +432,7 @@ public class BookingService {
             }
 
             int cancelCount = (int) bookingRepository.countByTenantIdAndStatus(userId, BookingStatus.CANCELLED);
-            int badReviews = 0; // TODO: Connect to Review Service
+            int badReviews = countBadReviews(userId);
 
             return aiServiceClient.getRiskScore(
                     userId,
@@ -443,6 +443,34 @@ public class BookingService {
             log.error("❌ Failed to fetch trust score: {}", e.getMessage());
             // Fallback safe en cas d'erreur
             return new RiskScoreResponse(userId, 100, "UNAVAILABLE");
+        }
+    }
+
+    /**
+     * Mauvais avis reçus par le tenant (notes 1-2/5 laissées par des owners,
+     * 1 review par séjour). Données RÉELLES via user-service ; repli à 0 si
+     * le service est injoignable (le risque reste alors basé sur les
+     * annulations, sans bloquer la réservation).
+     */
+    private int countBadReviews(Long userId) {
+        try {
+            java.util.List<java.util.Map<String, Object>> reviews = userClient.getUserReviews(userId);
+            if (reviews == null) {
+                return 0;
+            }
+            int bad = 0;
+            for (java.util.Map<String, Object> r : reviews) {
+                Object ratingObj = r.get("rating");
+                int rating = ratingObj instanceof Number ? ((Number) ratingObj).intValue() : 5;
+                if (rating <= 2) {
+                    bad++;
+                }
+            }
+            return bad;
+        } catch (Exception e) {
+            log.warn("⚠️ Could not fetch user reviews for {} ({}), assuming 0 bad reviews",
+                    userId, e.getMessage());
+            return 0;
         }
     }
 
@@ -468,10 +496,21 @@ public class BookingService {
                     if (user.getKycVersoUrl() == null || user.getKycVersoUrl().isBlank()) {
                         missing.add("KYC_VERSO");
                     }
-                    if (Boolean.FALSE.equals(user.getKycVerified())) {
+                    if (!user.isKycVerified()) {
                         missing.add("KYC_PENDING");
                     }
                     log.warn("❌ KYC incomplete for user {} missing={}", userId, missing);
+                    if (user.isKycPendingReview()
+                            || (!user.isKycRejected() && user.hasKycDocuments())) {
+                        throw new IncompleteProfileException(
+                                "Votre dossier KYC est en cours de vérification par notre équipe. Vous pourrez réserver dès sa validation.",
+                                missing, "/profile?missing=KYC");
+                    }
+                    if (user.isKycRejected()) {
+                        throw new IncompleteProfileException(
+                                "Votre vérification d'identité a été refusée ou a expiré. Veuillez soumettre à nouveau vos documents depuis votre profil.",
+                                missing, "/profile?missing=KYC");
+                    }
                     throw new IncompleteProfileException(
                             "Votre profil est incomplet (photo ou documents KYC manquants). Veuillez compléter votre profil.",
                             missing, "/profile?missing=KYC");
@@ -482,7 +521,7 @@ public class BookingService {
                 // --- Integration AI Service (Risk Score) ---
                 try {
                     int cancelCount = (int) bookingRepository.countByTenantIdAndStatus(userId, BookingStatus.CANCELLED);
-                    int badReviews = 0;
+                    int badReviews = countBadReviews(userId);
 
                     RiskScoreResponse risk = aiServiceClient.getRiskScore(
                             userId,

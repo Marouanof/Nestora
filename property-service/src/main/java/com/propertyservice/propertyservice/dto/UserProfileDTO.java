@@ -21,14 +21,34 @@ public class UserProfileDTO {
     private Boolean kycVerified;
     
     public boolean isKycComplete() {
+        return isKycVerified();
+    }
+
+    /**
+     * Identité vérifiée par l'admin (modèle Airbnb : seule une identité
+     * vérifiée permet de publier une annonce).
+     */
+    public boolean isKycVerified() {
         if (Boolean.TRUE.equals(kycVerified)) {
             return true;
         }
-        if (kycStatus == null) {
-            return kycRectoUrl != null && !kycRectoUrl.trim().isEmpty()
-                    && kycVersoUrl != null && !kycVersoUrl.trim().isEmpty();
-        }
         // user-service émet "VERIFIED" (KycVerificationStatus) ; "APPROVED" gardé pour compat
         return "VERIFIED".equalsIgnoreCase(kycStatus) || "APPROVED".equalsIgnoreCase(kycStatus);
+    }
+
+    /** Dossier soumis, en attente de validation admin. */
+    public boolean isKycPendingReview() {
+        return "PENDING".equalsIgnoreCase(kycStatus) || "IN_REVIEW".equalsIgnoreCase(kycStatus);
+    }
+
+    /** Dossier refusé ou expiré : l'utilisateur doit soumettre à nouveau. */
+    public boolean isKycRejected() {
+        return "REJECTED".equalsIgnoreCase(kycStatus) || "EXPIRED".equalsIgnoreCase(kycStatus);
+    }
+
+    /** Des documents ont été téléversés (même si pas encore validés). */
+    public boolean hasKycDocuments() {
+        return kycRectoUrl != null && !kycRectoUrl.trim().isEmpty()
+                && kycVersoUrl != null && !kycVersoUrl.trim().isEmpty();
     }
 }
