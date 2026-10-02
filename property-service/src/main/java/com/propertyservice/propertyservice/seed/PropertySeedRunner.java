@@ -1,5 +1,7 @@
 package com.propertyservice.propertyservice.seed;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.propertyservice.propertyservice.entity.Address;
 import com.propertyservice.propertyservice.entity.Property;
 import com.propertyservice.propertyservice.entity.PropertyImage;
@@ -28,10 +30,12 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
- * Seed de démo : 24 biens ACTIVE avec vraies photos, pour les tests manuels.
+ * Seed de démo : 24 biens rédigés + ~100 annonces réelles (DeRent5 Airbnb
+ * Maroc, seed/real-listings.json), ACTIVE avec vraies photos, pour les tests.
  *
  * Actif UNIQUEMENT avec le profil Spring {@code seeder} :
  * <pre>
@@ -222,9 +226,113 @@ public class PropertySeedRunner implements ApplicationRunner {
                         property.getId(), def.title(), def.priceMad(), images.size());
             }
             log.info("Seed terminé : {} bien(s) ACTIVE créé(s) avec photos", created);
+
+            // Annonces réelles (DeRent5 Airbnb Maroc) : seed/real-listings.json
+            int createdReal = seedRealListings(targetDir, PROPS.size());
+            log.info("Seed réel terminé : {} bien(s) ACTIVE créé(s)", createdReal);
         } catch (Exception e) {
             log.error("Échec du seed de démo", e);
             throw new RuntimeException("Échec du seed de démo", e);
+        }
+    }
+
+    /**
+     * Charge les annonces réelles échantillonnées (titres Airbnb, prix/ville/GPS
+     * réels). Idempotent comme le reste : ne crée que les titres absents.
+     */
+    @SuppressWarnings("unchecked")
+    private int seedRealListings(Path targetDir, int indexOffset) throws Exception {
+        ClassPathResource json = new ClassPathResource("seed/real-listings.json");
+        if (!json.exists()) {
+            log.warn("Seed réel ignoré : seed/real-listings.json absent du classpath");
+            return 0;
+        }
+        List<Map<String, Object>> defs;
+        try (InputStream in = json.getInputStream()) {
+            defs = new ObjectMapper().readValue(in, new TypeReference<List<Map<String, Object>>>() {
+            });
+        }
+        int created = 0;
+        for (int i = 0; i < defs.size(); i++) {
+            Map<String, Object> def = defs.get(i);
+            String title = String.valueOf(def.get("title"));
+            Property existingReal = propertyRepository.findByTitle(title).orElse(null);
+            if (existingReal != null) {
+                // Backfill : disponibilités manquantes (ex : seed interrompu)
+                availabilityService.generateAvailabilityForYear(existingReal.getId());
+                continue;
+            }
+            PropertyType type;
+            try {
+                type = PropertyType.valueOf(String.valueOf(def.get("type")));
+            } catch (Exception e) {
+                type = PropertyType.APARTMENT;
+            }
+            int idx = indexOffset + i;
+            Property property = Property.builder()
+                    .title(title)
+                    .description(String.valueOf(def.get("description")))
+                    .type(type)
+                    .address(new Address(
+                            String.valueOf(def.get("street")),
+                            String.valueOf(def.get("city")), null, null, "Maroc",
+                            toDouble(def.get("lat"), 33.0), toDouble(def.get("lng"), -7.0)))
+                    .pricePerNight(BigDecimal.valueOf(toInt(def.get("priceMad"), 500)))
+                    .securityDeposit(BigDecimal.valueOf(1000))
+                    .maxGuests(toInt(def.get("guests"), 2))
+                    .bedrooms(toInt(def.get("bedrooms"), 1))
+                    .bathrooms(toInt(def.get("bathrooms"), 1))
+                    .ownerId(1L + (idx % 3))
+                    .status(ListingStatus.ACTIVE)
+                    .minStayNights(1)
+                    .cancellationPolicyDays(7)
+                    .amenities(new ArrayList<>((List<String>) def.getOrDefault("amenities", List.of("Wifi"))))
+                    .instantBookable(idx % 2 == 0)
+                    .build();
+
+            List<String> keys = List.of(
+                    COVERS.get(idx % COVERS.size()),
+                    LIV.get(idx % LIV.size()),
+                    BED.get((idx * 2 + 1) % BED.size()),
+                    (idx % 2 == 0) ? KIT.get(idx % KIT.size()) : BAT.get(idx % BAT.size()));
+
+            List<PropertyImage> images = new ArrayList<>();
+            for (int order = 0; order < keys.size(); order++) {
+                String imageUrl = copySeedImage(keys.get(order), targetDir);
+                images.add(PropertyImage.builder()
+                        .imageUrl(imageUrl)
+                        .caption(captionFor(keys.get(order)))
+                        .displayOrder(order)
+                        .property(property)
+                        .build());
+            }
+            property.setImages(images);
+            propertyRepository.save(property);
+            availabilityService.generateAvailabilityForYear(property.getId());
+            created++;
+        }
+        return created;
+    }
+
+    private static int toInt(Object value, int fallback) {
+        if (value instanceof Number n) {
+            return n.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
+
+    private static double toDouble(Object value, double fallback) {
+        if (value instanceof Number n) {
+            return n.doubleValue();
+        }
+        try {
+            return Double.parseDouble(String.valueOf(value));
+        } catch (Exception e) {
+            return fallback;
         }
     }
 

@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -312,12 +313,23 @@ public class AvailabilityService {
                 .orElseThrow(() -> new PropertyNotFoundException("Property not found"));
 
         LocalDate today = LocalDate.now();
+        // UNE seule requête pour les dates existantes : la version précédente
+        // faisait 365 SELECT (un par jour), et chaque SELECT déclenchait un
+        // auto-flush qui dirty-checkait tout le contexte (9125+ entités en seed
+        // -> spirale O(n²), plusieurs minutes par bien).
+        Set<LocalDate> existing = new java.util.HashSet<>(
+                availabilityRepository.findByPropertyIdAndDateBetween(
+                        propertyId, today, today.plusDays(364))
+                        .stream()
+                        .map(AvailabilityCalendar::getDate)
+                        .toList());
+
         List<AvailabilityCalendar> calendars = new java.util.ArrayList<>();
 
         for (int i = 0; i < 365; i++) {
             LocalDate date = today.plusDays(i);
             // Check if already exists to avoid duplicates if re-run
-            if (availabilityRepository.findByPropertyIdAndDate(propertyId, date).isEmpty()) {
+            if (!existing.contains(date)) {
                 calendars.add(AvailabilityCalendar.builder()
                         .property(property)
                         .date(date)
@@ -327,8 +339,11 @@ public class AvailabilityService {
             }
         }
 
-        availabilityRepository.saveAll(calendars);
-        log.info("Generated availability for property {} for the next 365 days", propertyId);
+        if (!calendars.isEmpty()) {
+            availabilityRepository.saveAll(calendars);
+        }
+        log.info("Generated availability for property {} for the next 365 days ({} new)",
+                propertyId, calendars.size());
     }
 
     /**
