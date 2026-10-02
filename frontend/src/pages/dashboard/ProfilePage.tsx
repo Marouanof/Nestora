@@ -35,10 +35,17 @@ const Profile = () => {
     setOwnerError(null);
     try {
       await OwnerOnboardingService.becomeOwner();
+      // Le JWT contient les rôles au login : on le régénère pour que
+      // le backend (qui lit les rôles du token) voie le nouveau rôle OWNER.
+      const refreshed = await authStore.getState().refreshSession();
       await loadUser();
       // Force le rôle côté store : l'user a désormais plusieurs rôles
       if (authStore.getState().user) {
         authStore.setState({ user: { ...authStore.getState().user!, role: 'ROLE_OWNER' } });
+      }
+      if (!refreshed) {
+        setOwnerError('Rôle mis à jour — reconnecte-toi pour activer toutes les fonctions owner.');
+        return;
       }
       navigate('/owner/onboarding');
     } catch {

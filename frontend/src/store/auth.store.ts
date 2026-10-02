@@ -32,6 +32,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   loadUser: () => Promise<void>;
+  refreshSession: () => Promise<boolean>;
   validateSession: () => Promise<boolean>;
 }
 
@@ -111,6 +112,23 @@ export const authStore = create<AuthState>()(
           return true;
         } catch {
           get().logout();
+          return false;
+        }
+      },
+      // Régénère un JWT frais (rôles relus en base). À appeler après
+      // tout changement de rôles (ex : becomeOwner) car les rôles sont
+      // figés dans le JWT au login et propagés tels quels par la gateway.
+      refreshSession: async () => {
+        const refreshToken = get().refreshToken;
+        if (!refreshToken) return false;
+        try {
+          const response = await AuthService.refreshToken(refreshToken);
+          const token = response.data?.token as string | undefined;
+          const newRefreshToken = response.data?.refreshToken as string | undefined;
+          if (!token) return false;
+          set({ token, refreshToken: newRefreshToken ?? null });
+          return true;
+        } catch {
           return false;
         }
       },
