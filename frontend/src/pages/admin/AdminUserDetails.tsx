@@ -441,6 +441,33 @@ export const AdminUserDetails: React.FC = () => {
                 </span>
               </div>
 
+              {(user?.kycRectoUrl || user?.kycVersoUrl) && (
+                <div className="grid grid-cols-2 gap-3">
+                  {user?.kycRectoUrl && (
+                    <a href={user.kycRectoUrl} target="_blank" rel="noreferrer" className="group block">
+                      <p className="mb-1 text-xs font-medium text-muted-foreground">Recto — cliquer pour agrandir</p>
+                      <img
+                        src={user.kycRectoUrl}
+                        alt="KYC recto"
+                        loading="lazy"
+                        className="aspect-[3/2] w-full rounded-lg border object-cover transition group-hover:opacity-90"
+                      />
+                    </a>
+                  )}
+                  {user?.kycVersoUrl && (
+                    <a href={user.kycVersoUrl} target="_blank" rel="noreferrer" className="group block">
+                      <p className="mb-1 text-xs font-medium text-muted-foreground">Verso — cliquer pour agrandir</p>
+                      <img
+                        src={user.kycVersoUrl}
+                        alt="KYC verso"
+                        loading="lazy"
+                        className="aspect-[3/2] w-full rounded-lg border object-cover transition group-hover:opacity-90"
+                      />
+                    </a>
+                  )}
+                </div>
+              )}
+
               {user?.rejectionReason && (
                 <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   <p className="font-semibold">Rejection reason</p>
