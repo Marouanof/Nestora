@@ -53,14 +53,14 @@ export default function BudgetRecommendationsSection({
               Daily budget
             </label>
             <div className="flex min-w-0 flex-1 items-center gap-3 rounded-full border border-[#0D0B26]/12 bg-[#F3F0EA] px-5 py-3.5 dark:border-white/12 dark:bg-[#0D0B26]">
-              <span className="text-sm font-semibold text-[#8B5CF6] dark:text-[#C9BEFB]">$</span>
+              <span className="text-sm font-semibold text-[#8B5CF6] dark:text-[#C9BEFB]">MAD</span>
               <input
                 id="daily-budget"
                 type="number"
                 min="0"
-                step="0.0001"
+                step="50"
                 inputMode="decimal"
-                placeholder="0.05"
+                placeholder="1000"
                 value={budget || ''}
                 onChange={(e) => onBudgetChange(Number(e.target.value))}
                 className="min-w-0 flex-1 bg-transparent text-lg font-medium text-[#0D0B26] outline-none placeholder:text-[#8F86A6] dark:text-[#F6F2EC]"
