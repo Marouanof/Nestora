@@ -6,11 +6,59 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.metrics import mean_squared_error
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import joblib
+import json
+import os
 import random
 from datetime import datetime, timedelta
 
-# --- 1. DATA GENERATION (Synthetic History) ---
-# We simulate 12 months of history for our 5 cities (to avoid empty DB issues)
+# --- 0. REAL MARKET REFERENTIAL (DeRent5 Airbnb listings, Morocco) ---
+# ai-service/data/morocco_market.json : médianes réelles par ville x mois.
+# Généré par scripts hors repo depuis le CSV 65k annonces (voir meta.source).
+_MARKET_REF = None
+
+# Le CSV DeRent5 utilise parfois les noms anglais (Tangier) : on les rabat
+# sur les noms utilisés par CITIES.
+CITY_ALIASES = {
+    "Tangier": "Tanger",
+}
+
+def load_market_referential():
+    """Charge (une fois) les médianes mensuelles réelles par ville."""
+    global _MARKET_REF
+    if _MARKET_REF is not None:
+        return _MARKET_REF
+    _MARKET_REF = {}
+    try:
+        path = os.path.join(os.path.dirname(__file__), "data", "morocco_market.json")
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        for city, entry in (data.get("cities") or {}).items():
+            city = CITY_ALIASES.get(city, city)
+            _MARKET_REF[city] = {
+                "median": entry.get("median"),
+                "by_month": {m: v.get("median") for m, v in (entry.get("by_month") or {}).items()
+                             if v.get("median")},
+            }
+    except Exception as e:
+        print(f"Referentiel marche introuvable ({e}) : repli synthétique")
+    return _MARKET_REF
+
+
+def monthly_price_for(city, when, city_fallback):
+    """Prix du mois réel (même mois une autre année si besoin), sinon médiane ville."""
+    ref = load_market_referential().get(city) or {}
+    by_month = ref.get("by_month") or {}
+    key = when.strftime("%Y-%m")
+    if by_month.get(key):
+        return by_month[key]
+    same_mm = [v for k, v in by_month.items() if k.endswith(when.strftime("-%m")) and v]
+    if same_mm:
+        return same_mm[0]
+    return city_fallback
+
+# --- 1. HISTORY (real monthly medians anchored, synthetic fallback) ---
+# 12 mois de médianes réelles par ville (DeRent5 Airbnb Maroc) quand le
+# référentiel data/morocco_market.json est présent, sinon repli synthétique.
 
 CITIES = ["Casablanca", "Rabat", "Agadir", "Fes", "Tanger"]
 
@@ -27,9 +75,10 @@ DEFAULT_BASE_PRICES = {
 
 def generate_historical_data(days=365, base_prices=None):
     """
-    Generates synthetic daily average price data for each city over the last year.
-    Includes seasonality (Summer high, Winter low) and random noise.
-    base_prices: dict ville -> prix moyen MAD/nuit (défauts réalistes sinon).
+    Historique quotidien par ville, ancré sur les médianes mensuelles RÉELLES
+    (référentiel DeRent5) quand disponibles : chaque jour vaut la médiane de
+    son mois. Repli synthétique (saisonnalité + bruit) sinon.
+    base_prices: dict ville -> prix moyen MAD/nuit (priorité sur les défauts).
     """
     end_date = datetime.now()
     start_date = end_date - timedelta(days=days)
@@ -38,27 +87,32 @@ def generate_historical_data(days=365, base_prices=None):
     all_data = []
 
     bases = base_prices or DEFAULT_BASE_PRICES
+    ref = load_market_referential()
+    use_real = any(ref.get(c, {}).get("by_month") for c in CITIES)
     for city in CITIES:
         base = bases.get(city) or DEFAULT_BASE_PRICES[city]
-        
-        # Seasonality factors
-        # Summer (Jun-Aug) = +30%, Dec = +20%
-        seasonality = []
-        for d in dates:
-            m = d.month
-            factor = 1.0
-            if m in [6, 7, 8]: factor = 1.3
-            elif m == 12: factor = 1.2
-            
-            # Weekend bump
-            if d.weekday() >= 4: factor += 0.1
-            
-            # Random market fluctuation (-10% to +10%)
-            noise = random.uniform(0.9, 1.1)
-            
-            seasonality.append(factor * noise)
-            
-        prices = [base * f for f in seasonality]
+
+        if use_real and ref.get(city, {}).get("by_month"):
+            # Ancrage réel : médiane du mois observé (forme saisonnière vraie)
+            prices = [monthly_price_for(city, d, base) for d in dates]
+        else:
+            # Repli synthétique
+            seasonality = []
+            for d in dates:
+                m = d.month
+                factor = 1.0
+                if m in [6, 7, 8]: factor = 1.3
+                elif m == 12: factor = 1.2
+
+                # Weekend bump
+                if d.weekday() >= 4: factor += 0.1
+
+                # Random market fluctuation (-10% to +10%)
+                noise = random.uniform(0.9, 1.1)
+
+                seasonality.append(factor * noise)
+
+            prices = [base * f for f in seasonality]
         
         city_df = pd.DataFrame({
             'date': dates,
