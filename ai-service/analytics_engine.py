@@ -9,12 +9,35 @@ import joblib
 import json
 import os
 import random
+import re
+import unicodedata
 from datetime import datetime, timedelta
 
 # --- 0. REAL MARKET REFERENTIAL (DeRent5 Airbnb listings, Morocco) ---
 # ai-service/data/morocco_market.json : médianes réelles par ville x mois.
 # Généré par scripts hors repo depuis le CSV 65k annonces (voir meta.source).
 _MARKET_REF = None
+
+# --- 0. NORMALISATION DES VILLES ---
+# Le CSV mélange les variantes (Tangier/Tanger, Tétouan encodé en mojibake,
+# Meknes/Meknès côté API). Sans normalisation, la même ville apprend deux
+# city_code différents et l'inférence tombe sur city_code=-1 (« inconnue »).
+# Forme canonique : minuscules, sans accents, lettres uniquement.
+_CITY_ALIASES = {
+    "tangier": "tanger",   # nom anglais -> nom local
+    "ttouan": "tetouan",   # mojibake T�touan (caractère de remplacement supprimé)
+}
+
+
+def normalize_city(name):
+    """'Meknès' -> 'meknes', 'Tangier' -> 'tanger', 'T�touan' -> 'tetouan'."""
+    if not name:
+        return ""
+    ascii_name = unicodedata.normalize("NFKD", str(name).strip().lower())
+    ascii_name = ascii_name.encode("ascii", "ignore").decode("ascii")
+    ascii_name = re.sub(r"[^a-z]", "", ascii_name)
+    return _CITY_ALIASES.get(ascii_name, ascii_name)
+
 
 # Le CSV DeRent5 utilise parfois les noms anglais (Tangier) : on les rabat
 # sur les noms utilisés par CITIES.
@@ -33,7 +56,7 @@ def load_market_referential():
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
         for city, entry in (data.get("cities") or {}).items():
-            city = CITY_ALIASES.get(city, city)
+            city = normalize_city(CITY_ALIASES.get(city, city))
             _MARKET_REF[city] = {
                 "median": entry.get("median"),
                 "by_month": {m: v.get("median") for m, v in (entry.get("by_month") or {}).items()
@@ -46,7 +69,7 @@ def load_market_referential():
 
 def monthly_price_for(city, when, city_fallback):
     """Prix du mois réel (même mois une autre année si besoin), sinon médiane ville."""
-    ref = load_market_referential().get(city) or {}
+    ref = load_market_referential().get(normalize_city(city)) or {}
     by_month = ref.get("by_month") or {}
     key = when.strftime("%Y-%m")
     if by_month.get(key):

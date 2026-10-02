@@ -50,6 +50,10 @@ scaled_features = scaler.fit_transform(features_for_clustering)
 # Fit K-Means
 df_properties['cluster'] = kmeans.fit_predict(scaled_features)
 
+# Bonus additif appliqué aux biens du segment naturel du visiteur
+# (voir get_recommendations). Petit par design : départage sans bouleverser.
+CLUSTER_BONUS = 0.05
+
 print("✅ K-Means Clustering complete. Clusters created on real properties.")
 
 
@@ -67,7 +71,10 @@ def load_models():
         print("✅ Modèle Pricing chargé")
     if os.path.exists(RISK_MODEL_PATH):
         RISK_MODEL = joblib.load(RISK_MODEL_PATH)
-        print("✅ Modèle Risk chargé")
+        # Conservé en standby : l'endpoint risque utilise l'heuristique v1
+        # (voir get_risk_score). Le modèle ne servira qu'une fois ré-entraîné
+        # sur des incidents réels (train_risk_model.py --from-csv).
+        print("✅ Modèle Risk chargé (standby, endpoint = heuristique v1)")
 
 
 load_models()
@@ -78,6 +85,10 @@ async def get_recommendations(user_budget: float = Query(..., gt=0)):
     """
     Retourne les IDs des propriétés réelles recommandées en fonction du budget
     utilisateur (EUR), via similarité cosinus sur (prix/bedrooms/type).
+
+    Bonus de segment : le cluster K-Means majoritaire parmi le top-5 (le
+    « standing naturel » du visiteur) reçoit un bonus, pour des recos plus
+    cohérentes en gamme sans exclure les bonnes affaires d'autres segments.
     """
     try:
         # Vecteur utilisateur : (budget, 2 chambres moyennes, type moyen 0)
@@ -89,15 +100,25 @@ async def get_recommendations(user_budget: float = Query(..., gt=0)):
         df = df_properties.copy()
         df['similarity'] = similarities[0]
 
-        # On recommande toutes les vraies propriétés, triées par similarité
-        recs = df.sort_values(by='similarity', ascending=False)
+        # Segment naturel du visiteur = cluster majoritaire du top-5
+        top5 = df.nlargest(5, 'similarity')
+        budget_cluster = int(top5['cluster'].mode().iloc[0])
+
+        # Bonus additif (petit : ne bouleverse pas l'ordre, départage les ex-aequo)
+        df['final_score'] = df['similarity'] + np.where(
+            df['cluster'] == budget_cluster, CLUSTER_BONUS, 0.0)
+
+        # On recommande toutes les vraies propriétés, triées par score final
+        recs = df.sort_values(by='final_score', ascending=False)
 
         recommended_ids = recs['id'].astype(int).tolist()
 
         return {
             "user_budget": user_budget,
+            "budget_cluster": budget_cluster,
             "recommended_property_ids": recommended_ids,
-            "debug_scores": recs[['id', 'city', 'pricePerNight', 'similarity']].to_dict(orient='records')
+            "debug_scores": recs[['id', 'city', 'pricePerNight', 'cluster',
+                                  'similarity', 'final_score']].to_dict(orient='records')
         }
 
     except Exception as e:
@@ -139,8 +160,10 @@ async def get_suggested_price(property_id: int, date: str):
             real_price = None
 
         # 1. Prédiction du modèle (effets ville/mois/chambres appris sur données réelles)
+        # La ville est normalisée (accents/casse/alias) comme à l'entraînement,
+        # sinon une variante (ex : 'Meknès' vs 'Meknes') tombe sur city_code=-1.
         try:
-            city_code = MODEL_CITIES.index(city)
+            city_code = MODEL_CITIES.index(analytics_engine.normalize_city(city))
         except ValueError:
             city_code = -1
         base_features = pd.DataFrame([{
@@ -159,18 +182,22 @@ async def get_suggested_price(property_id: int, date: str):
         base_prediction = float(MODEL.predict(base_features)[0])
 
         # 2. Ancrage autour du prix réel du listing (le modèle donne la
-        # justesse relative, le listing donne le niveau)
+        # justesse relative, le listing donne le niveau).
+        # Bornes calibrées sur 65 986 annonces DeRent5 (voir
+        # data/anchor_calibration.json : P5=0.46, P99=2.20) : ~94 % du marché
+        # passe sans recadrage forcé, seuls les extrêmes sont bornés.
         anchor_source = "model"
         if real_price and base_prediction > 0:
-            city_premium = float(np.clip(real_price / base_prediction, 0.7, 2.2))
+            city_premium = float(np.clip(real_price / base_prediction, 0.5, 2.2))
             anchor_source = "listing"
         else:
             # Repli : médiane réelle de la ville (référentiel DeRent5)
             city_premium = 1.0
             try:
-                ref = analytics_engine.load_market_referential().get(city) or {}
+                ref = analytics_engine.load_market_referential().get(
+                    analytics_engine.normalize_city(city)) or {}
                 if ref.get("median") and base_prediction > 0:
-                    city_premium = float(np.clip(ref["median"] / base_prediction, 0.7, 2.2))
+                    city_premium = float(np.clip(ref["median"] / base_prediction, 0.5, 2.2))
                     anchor_source = "city-median"
             except Exception:
                 pass
@@ -201,18 +228,23 @@ async def get_suggested_price(property_id: int, date: str):
 
 @app.get("/api/v1/risk/score/{user_id}")
 async def get_risk_score(user_id: int, cancel_count: int, bad_reviews: int):
+    """
+    Score de confiance tenant (0-100, haut = sûr).
+
+    HEURISTIQUE v1 TRANSPARENTE — pas de ML ici, et c'est volontaire :
+    le RandomForest (risk_model.joblib) était entraîné sur 1000 profils
+    SIMULÉS suivant une règle déterministe, donc il ne faisait que réciter
+    cette règle (probas 1.00/0.00, aucune généralisation). Autant appliquer
+    la règle en clair : même décisions, zéro faux-semblant.
+    Formule : score = 100 - 15*annulations - 30*mauvais_avis (plancher 0).
+    Les seuils reprennent l'ancienne frontière (10*annul + 20*avis >= 40
+    = risqué) : 4 annulations seules, ou 2 mauvais avis seuls, ou
+    2 annulations + 1 mauvais avis font basculer.
+    Quand user_reviews contiendra du volume réel + des labels d'incidents,
+    basculer sur train_risk_model.py --from-csv (voir son docstring).
+    """
     try:
-        features = pd.DataFrame([{
-            "cancel_count": cancel_count,
-            "bad_reviews": bad_reviews
-        }])
-
-        if RISK_MODEL:
-            proba_trust = RISK_MODEL.predict_proba(features)[0][1]
-        else:
-            proba_trust = 0.8  # Fallback if model not loaded
-
-        score = int(proba_trust * 100)
+        score = max(0, 100 - 15 * cancel_count - 30 * bad_reviews)
 
         risk_level = "LOW"
         if score < 40: risk_level = "HIGH"
@@ -223,7 +255,8 @@ async def get_risk_score(user_id: int, cancel_count: int, bad_reviews: int):
             "score": score,
             "risk_level": risk_level,
             "details": {
-                "cancel_impact": cancel_count * -5
+                "cancel_impact": cancel_count * -15,
+                "bad_review_impact": bad_reviews * -30
             }
         }
     except Exception as e:

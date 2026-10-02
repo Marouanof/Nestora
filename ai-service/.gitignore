@@ -34,3 +34,6 @@ ENV/
 
 # Models (Keep if small, ignore if large)
 # *.joblib
+
+# Raw datasets (re-téléchargeables via les scripts train_*)
+data/morocco_listings_full.csv

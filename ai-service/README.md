@@ -4,9 +4,9 @@
 Ce service fournit des fonctionnalités d’IA pour la plateforme : recommandations de propriétés, suggestion de prix, scoring de risque utilisateur, et analytics de marché. Il expose une API REST (FastAPI) et utilise des modèles ML (XGBoost, scikit-learn, joblib).
 
 ## Fonctionnalités principales
-- **Recommandation de propriétés** selon le budget utilisateur (cosine similarity, clustering)
-- **Suggestion de prix** pour une propriété à une date donnée (modèle XGBoost, saisonnalité, week-end, rendement)
-- **Scoring de risque utilisateur** (modèle ML, features : annulations, avis)
+- **Recommandation de propriétés** selon le budget utilisateur (cosine similarity + bonus de segment K-Means : le cluster majoritaire du top-5 reçoit +0,05 pour des recos cohérentes en gamme)
+- **Suggestion de prix** pour une propriété à une date donnée (modèle XGBoost, saisonnalité, week-end, rendement), ancrée au prix réel avec des bornes calibrées sur 65 986 annonces DeRent5 ([0,5 – 2,2], voir `data/anchor_calibration.json`)
+- **Scoring de risque utilisateur** (heuristique v1 transparente : 100 − 15×annulations − 30×mauvais avis ; le RandomForest simulé ne faisait que réciter sa règle d'entraînement — voir `train_risk_model.py --from-csv` pour passer au vrai ML quand les incidents réels seront tracés)
 - **Analytics de marché** (prévisions de prix, clustering de villes, modèles RandomForest/Holt-Winters)
 
 ## Structure
