@@ -133,6 +133,12 @@ public class PaymentService {
         publish(bookingId, false, "PAYMENT_INITIATED", RabbitConfig.PAYMENT_INITIATED_ROUTING_KEY, true);
         log.info("Checkout STUB cree: booking={} session={} amount={} {}", bookingId, sessionId, total, currency);
 
+        // En stub il n'y a pas de page de paiement ni de webhook : le checkoutUrl
+        // redirige direct vers la success page, donc on complète aussitôt pour
+        // alimenter la même chaîne que le webhook (PAYMENT_SUCCESS -> CONFIRMED).
+        // Pour simuler un échec, utiliser /api/test/payments/stub/complete avec success=false.
+        handleSessionCompleted(sessionId, "stub_pi_" + UUID.randomUUID().toString().replace("-", ""));
+
         return InitPaymentResponse.builder()
                 .paymentId(payment.getId())
                 .bookingId(bookingId)
