@@ -49,7 +49,7 @@ import {
 import { useUsersList, useUserSearch, useUserFilters, useEnableUser, useDisableUser, useChangeRole, useForceLogout, useDeleteUser, useApproveKyc, useRejectKyc } from '@/hooks/admin/useAdminUsers';
 import { COUNTRIES_LIST, COUNTRIES_AND_CITIES } from '@/types/location.constants';
 import type { AdminUser } from '@/services/adminUser.service';
-import { getPrimaryRole, isUserActive } from '@/services/adminUser.service';
+import { getUserRoles, isUserActive } from '@/services/adminUser.service';
 
 export const AdminUsersOverview: React.FC = () => {
   const navigate = useNavigate();
@@ -365,9 +365,13 @@ export const AdminUsersOverview: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getRoleBadgeVariant(getPrimaryRole(user))}>
-                          {getRoleDisplayName(getPrimaryRole(user))}
-                        </Badge>
+                        <div className="flex flex-wrap gap-1">
+                          {getUserRoles(user).map((r) => (
+                            <Badge key={r} variant={getRoleBadgeVariant(r)}>
+                              {getRoleDisplayName(r)}
+                            </Badge>
+                          ))}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {user.city && user.country ? `${user.city}, ${user.country}` : 'N/A'}

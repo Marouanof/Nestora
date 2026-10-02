@@ -41,6 +41,14 @@ export function getPrimaryRole(user: { roles?: AdminRole[]; role?: AdminRole }):
   return user?.role;
 }
 
+/** Tous les rôles (un user peut être TENANT + OWNER). */
+export function getUserRoles(user: { roles?: AdminRole[]; role?: AdminRole }): AdminRole[] {
+  if (Array.isArray(user?.roles) && user.roles.length > 0) {
+    return user.roles;
+  }
+  return user?.role ? [user.role] : [];
+}
+
 export interface CreateUserData {
   firstName: string;
   lastName: string;
